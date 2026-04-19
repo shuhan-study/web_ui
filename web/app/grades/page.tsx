@@ -1,4 +1,5 @@
 import { fetchAllSubjects } from '@/utils/actions';
+import SubjectCard from '@/components/subjects/SubjectCard';
 
 export default async function GradesPage() {
   const subjects = await fetchAllSubjects();
@@ -11,14 +12,11 @@ export default async function GradesPage() {
           No subjects yet. Run <code>npm run seed</code>.
         </p>
       ) : (
-        <ul className="mt-4 space-y-1">
+        <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {subjects.map((s) => (
-            <li key={s.id}>
-              <span className="font-medium">{s.name}</span>
-              <span className="text-muted-foreground"> — {s.teacher}</span>
-            </li>
+            <SubjectCard key={s.id} subject={s} />
           ))}
-        </ul>
+        </div>
       )}
     </>
   );
