@@ -5,3 +5,14 @@ export const fetchAllSubjects = () => {
     orderBy: { name: 'asc' },
   });
 };
+
+export const fetchSubjectById = (id: string) => {
+  return db.subject.findUnique({
+    where: { id },
+    include: {
+      assignments: {
+        orderBy: { date: 'asc' },
+      },
+    },
+  });
+};
