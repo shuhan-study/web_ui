@@ -1,0 +1,107 @@
+{
+  "student": {
+    "name": "Shuhan Geng",
+    "school": "Albany Middle School",
+    "grade": 6
+  },
+  "term": {
+    "name": "Quarter 4",
+    "start": "2026-02-01",
+    "end": "2026-05-30"
+  },
+  "subjects": [
+    {
+      "id": "math_6",
+      "name": "Math 6",
+      "teacher": "Angeloni",
+      "current_grade": "A",
+      "current_percent": 94.0,
+      "assignments": [
+        { "name": "Fractions Practice Set", "score": 28, "max_score": 30, "date": "2026-02-20", "category": "Homework" },
+        { "name": "Ratios Quiz", "score": 18, "max_score": 20, "date": "2026-03-06", "category": "Quiz" },
+        { "name": "Unit 7 Proportions Test", "score": 46, "max_score": 50, "date": "2026-03-27", "category": "Test" },
+        { "name": "Geometry Warm-ups", "score": 24, "max_score": 25, "date": "2026-04-10", "category": "Homework" },
+        { "name": "Data Collection Poster", "score": 38, "max_score": 40, "date": "2026-04-17", "category": "Project" }
+      ]
+    },
+    {
+      "id": "writing_6",
+      "name": "Writing 6",
+      "teacher": "Fryer",
+      "current_grade": "A",
+      "current_percent": 93.0,
+      "assignments": [
+        { "name": "Paragraph Draft — Opinion", "score": 18, "max_score": 20, "date": "2026-02-27", "category": "Homework" },
+        { "name": "Persuasive Essay", "score": 47, "max_score": 50, "date": "2026-03-20", "category": "Project" },
+        { "name": "Grammar Check Quiz", "score": 14, "max_score": 15, "date": "2026-04-03", "category": "Quiz" },
+        { "name": "Revision Journal", "score": 19, "max_score": 20, "date": "2026-04-14", "category": "Homework" }
+      ]
+    },
+    {
+      "id": "reading_6",
+      "name": "Reading 6",
+      "teacher": "Fryer",
+      "current_grade": "B",
+      "current_percent": 86.3,
+      "assignments": [
+        { "name": "Reading Log — Week 1", "score": 9, "max_score": 10, "date": "2026-02-13", "category": "Homework" },
+        { "name": "Vocabulary Quiz", "score": 14, "max_score": 15, "date": "2026-03-02", "category": "Quiz" },
+        { "name": "Night Diary Book Test", "score": 38, "max_score": 50, "date": "2026-03-20", "category": "Test" },
+        { "name": "Book Report — Character Analysis", "score": 42, "max_score": 50, "date": "2026-04-05", "category": "Project" },
+        { "name": "Reading Log — Week 10", "score": 10, "max_score": 10, "date": "2026-04-10", "category": "Homework" }
+      ]
+    },
+    {
+      "id": "history_6",
+      "name": "History 6",
+      "teacher": "Fryer",
+      "current_grade": "A+",
+      "current_percent": 97.0,
+      "assignments": [
+        { "name": "Ancient Egypt Notes", "score": 10, "max_score": 10, "date": "2026-02-24", "category": "Homework" },
+        { "name": "Geography Quiz", "score": 15, "max_score": 15, "date": "2026-03-10", "category": "Quiz" },
+        { "name": "Mesopotamia Unit Test", "score": 48, "max_score": 50, "date": "2026-03-25", "category": "Test" },
+        { "name": "Civilization Poster", "score": 49, "max_score": 50, "date": "2026-04-08", "category": "Project" }
+      ]
+    },
+    {
+      "id": "science_6",
+      "name": "Science 6",
+      "teacher": "Angeloni",
+      "current_grade": "A+",
+      "current_percent": 96.0,
+      "assignments": [
+        { "name": "Weather Observations Log", "score": 19, "max_score": 20, "date": "2026-02-28", "category": "Homework" },
+        { "name": "Atmosphere Quiz", "score": 14, "max_score": 15, "date": "2026-03-12", "category": "Quiz" },
+        { "name": "Ecosystems Test", "score": 47, "max_score": 50, "date": "2026-04-02", "category": "Test" },
+        { "name": "Solar System Model", "score": 49, "max_score": 50, "date": "2026-04-18", "category": "Project" }
+      ]
+    },
+    {
+      "id": "pe_6",
+      "name": "P.E. 6",
+      "teacher": "Mann",
+      "current_grade": "A+",
+      "current_percent": 98.0,
+      "assignments": [
+        { "name": "Fitness Log — Week 1", "score": 10, "max_score": 10, "date": "2026-02-14", "category": "Homework" },
+        { "name": "Fitness Log — Week 4", "score": 10, "max_score": 10, "date": "2026-03-06", "category": "Homework" },
+        { "name": "Fitness Test", "score": 48, "max_score": 50, "date": "2026-04-03", "category": "Test" },
+        { "name": "Fitness Log — Week 10", "score": 10, "max_score": 10, "date": "2026-04-17", "category": "Homework" }
+      ]
+    },
+    {
+      "id": "cobra_choir",
+      "name": "Cobra Choir",
+      "teacher": "Huizinga",
+      "current_grade": "A+",
+      "current_percent": 97.0,
+      "assignments": [
+        { "name": "Practice Log — February", "score": 20, "max_score": 20, "date": "2026-02-28", "category": "Homework" },
+        { "name": "Spring Concert Prep", "score": 49, "max_score": 50, "date": "2026-03-14", "category": "Project" },
+        { "name": "Vocal Technique Assessment", "score": 48, "max_score": 50, "date": "2026-03-28", "category": "Test" },
+        { "name": "Ensemble Rehearsal Performance", "score": 49, "max_score": 50, "date": "2026-04-18", "category": "Project" }
+      ]
+    }
+  ]
+}
