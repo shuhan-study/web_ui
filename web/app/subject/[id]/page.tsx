@@ -22,10 +22,12 @@ export default async function SubjectPage({
         <h2 className="text-xl font-semibold mb-4">Assignments</h2>
         <AssignmentsTable assignments={subject.assignments} />
       </section>
-      <section className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">By category</h2>
-        <CategoryBreakdown assignments={subject.assignments} />
-      </section>
+      {subject.assignments.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">By category</h2>
+          <CategoryBreakdown assignments={subject.assignments} />
+        </section>
+      )}
     </>
   );
 }

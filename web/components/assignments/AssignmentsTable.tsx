@@ -1,4 +1,5 @@
 import type { Assignment } from '@prisma/client';
+import EmptyState from '@/components/global/EmptyState';
 import {
   Table,
   TableBody,
@@ -13,6 +14,9 @@ function AssignmentsTable({
 }: {
   assignments: Assignment[];
 }) {
+  if (assignments.length === 0) {
+    return <EmptyState heading="No assignments yet." />;
+  }
   return (
     <Table>
       <TableHeader>
