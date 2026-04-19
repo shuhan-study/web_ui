@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { fetchSubjectById } from '@/utils/actions';
 import AssignmentsTable from '@/components/assignments/AssignmentsTable';
+import CategoryBreakdown from '@/components/assignments/CategoryBreakdown';
 
 export default async function SubjectPage({
   params,
@@ -20,6 +21,10 @@ export default async function SubjectPage({
       <section className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Assignments</h2>
         <AssignmentsTable assignments={subject.assignments} />
+      </section>
+      <section className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">By category</h2>
+        <CategoryBreakdown assignments={subject.assignments} />
       </section>
     </>
   );
