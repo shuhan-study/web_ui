@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { fetchSubjectById } from '@/utils/actions';
+import AssignmentsTable from '@/components/assignments/AssignmentsTable';
 
 export default async function SubjectPage({
   params,
@@ -16,9 +17,10 @@ export default async function SubjectPage({
         {subject.teacher} · {subject.currentGrade} ·{' '}
         {subject.currentPercent.toFixed(1)}%
       </p>
-      <p className="mt-8 text-sm text-muted-foreground">
-        {subject.assignments.length} assignments recorded.
-      </p>
+      <section className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Assignments</h2>
+        <AssignmentsTable assignments={subject.assignments} />
+      </section>
     </>
   );
 }
