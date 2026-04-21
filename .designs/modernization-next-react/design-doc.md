@@ -68,7 +68,10 @@ not a caching redesign.
 - **Freshness fallback** — if `/grades` serves stale data after upgrade,
   add `export const dynamic = 'force-dynamic'` to
   `web/app/grades/page.tsx` as the minimum fix, file a bead documenting
-  the caching-redesign handoff to Deploy.
+  the caching-redesign handoff to Deploy. Applying `force-dynamic`
+  overrides PRD OQ5's deferral instinct **only when the smoke mutate-
+  probe shows a live regression**; if freshness is intact post-upgrade,
+  no annotation is added and the caching question remains Deploy's.
 
 ### Interface
 
@@ -140,7 +143,10 @@ Row counts captured in baseline.
 - **"Unless it breaks" = build fails OR runtime error on smoke routes
   OR peer-dep needs `--legacy-peer-deps`.** Deprecation warnings or
   theme flash alone do NOT count as "breaks" — file a bead, keep the
-  pin. (Resolves review Q8.)
+  pin. (Resolves review Q8.) Theme flash falls outside C6's "user-
+  visible regression" bar because C6's worked example is "lost theme
+  toggle" (loss, not degradation); flash is a cosmetic mount-time
+  glitch tolerated here and owned by the deferred `next-themes` bead.
 - **4-hour blocker abort rule.** Pinned by problem statement. On abort:
   park branch, file bead, leave `main` untouched, no `v0.6` tag.
   (Resolves review Q5.)
@@ -168,7 +174,10 @@ Row counts captured in baseline.
 1. **Add `postinstall: "prisma generate"` and `engines.node: ">=20.9"`
    in this project?** Both are cheap, in-spirit with the Modernization
    theme, technically beyond the literal framework bump. Recommend:
-   yes to both. Please confirm or veto.
+   yes to both. Please confirm or veto. **If unresolved at dispatch
+   time, the polecat does NOT add `postinstall` or `engines.node`**;
+   defaults stay out and a follow-on bead "Add postinstall +
+   engines.node pin" is filed under Modernization v2.
 2. **ESLint 8 → 9 disposition if forced by `eslint-config-next@16`.**
    Three options: (a) in-scope migrate to flat config; (b) pin older
    `eslint-config-next` (defeats upgrade); (c) accept broken `npm
@@ -210,7 +219,7 @@ Row counts captured in baseline.
 | `next-themes` theme-flash on React 19 | Medium | Medium | Hard-refresh in dark mode as explicit smoke step. If flash observed, file bead; evaluate `next-themes` minor bump only if it doesn't cross a major. |
 | Async-`params` missed in `web/app/subject/[id]/page.tsx` | Low | High | Explicit grep + hand-fix commit even if codemod reports handled. |
 | Font-loader regression on `next/font/local` | Low | Medium | Network-panel check for `.woff2` 404 in smoke. |
-| Bundle size 2× blow-up | Low | Low-Med | Baseline capture; diff at Phase 5; not a hard gate unless severe. |
+| Bundle size 2× blow-up | Low | Low-Med | Baseline capture; diff at Phase 5. **Single regression-detection data point, not a bundle audit — no optimization work performed regardless of value.** Any action deferred to a follow-on bead under Modernization v2. |
 | ESLint 8 → 9 forced | Medium | Low | `build` doesn't run lint; accept broken `npm run lint` and file bead. |
 | `npm audit` regression (new High/Critical runtime CVE) | Low | Medium | Hard gate on Phase 4 lockfile commit. |
 | Supply-chain surprise in a bumped transitive | Low | Medium | `npm audit` delta + lockfile spot-check. |
@@ -249,7 +258,9 @@ Upgrading on a broken baseline is incoherent.
    - `react`, `react-dom` → latest `^19`
    - `@types/react`, `@types/react-dom` → latest `^19`
    - `eslint-config-next` → latest `^16`
-   - (optional) `@types/node` → `^22`
+   - (optional) `@types/node` → `^20` (match Next 16 Node floor;
+     bump only if a specific Next 16 / React 19 type dependency
+     forces `^22`)
    - (optional) add `"engines": { "node": ">=20.9" }`
    - (optional) add `"postinstall": "prisma generate"`
 2. Delete `web/node_modules` and `web/package-lock.json`.
@@ -332,7 +343,9 @@ single transitive bump pass, invoke 4-hour rule.
    - Force a throw in a Client Component on `/grades`, confirm
      `error.tsx` renders.
    - Mutate one row via Prisma Studio or direct SQL; refresh
-     `/grades`; confirm new value appears within one reload.
+     `/grades`; confirm new value appears within one reload. Revert
+     the mutated row to its seeded value after the probe, or re-run
+     `npx prisma db seed`.
 4. Capture `.next/static` size diff; note in smoke doc.
 5. File follow-on beads:
    - "Modernization v2 — Tailwind 3 → 4."
