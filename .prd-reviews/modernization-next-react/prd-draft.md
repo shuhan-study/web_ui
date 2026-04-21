@@ -106,8 +106,14 @@ all Path B beads land and the four verification checks above pass.
 - **Tailwind 3 must keep working.** If the Tailwind 3 + Next 16 combo is broken in a way
   we can't fix with a PostCSS config tweak, that's a hard stop — we'd have to either roll
   back or escalate to include Tailwind 4, which breaks the scoping decision.
-- **No test suite to lean on.** Verification is manual + `npm run build`. Which means the
-  polecat must actually exercise the app in a browser, not declare victory when `tsc` is quiet.
+- **No test suite to lean on.** Verification is manual + `npm run build`. Build + `dev`
+  cold-start are **polecat gates** (machine-verifiable: `npm run build` green, `tsc --noEmit`
+  clean, server log diff, curl probes on `/`, `/grades`, `/subject/[id]`). **Browser smoke
+  is a maintainer pre-tag gate** (theme toggle, theme flash, font loading, error-boundary
+  triggering, mutate-probe) — polecats lack GUI browsers, so the implementation design
+  reassigns browser exercise to the maintainer post-merge. The "don't declare victory when
+  `tsc` is quiet" principle holds: a polecat passing build + dev + curl probes is NOT done
+  until the maintainer has run the browser smoke checklist.
 - **Polecat model.** Work happens in a worktree; Refinery merges via MQ. Upgrade commits
   must be small and linear so they're easy to bisect if something regresses after deploy.
 - **No user-visible regressions allowed.** The whole point is invisibility. A working app
