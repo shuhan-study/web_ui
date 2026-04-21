@@ -93,4 +93,3 @@ not by P-number. P1–P5 was Path A's cadence; Path B produces larger
 epics that don't map to P-numbers.
 
 **Tag scheme:** `v0.X-<project>-complete` (e.g., `v0.6-modernization-complete`).
-
