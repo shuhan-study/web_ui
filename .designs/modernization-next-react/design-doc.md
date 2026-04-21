@@ -103,7 +103,6 @@ npm run dev                 # must cold-start without server errors
 
 **Frozen.** Prisma schema, seed data, `utils/actions.ts` signatures
 unchanged. Data-freshness verified via mutate-probe, not schema change.
-Row counts captured in baseline.
 
 ## Trade-offs and Decisions
 
@@ -119,9 +118,11 @@ Row counts captured in baseline.
 - **Baseline artifact is a Phase 1 hard gate.** Committed as
   `notes/modernization-baseline.md`. (Resolves review Q1.)
 - **"Runtime error" bar**: fail on `console.error` in browser, fail on
-  any new server-log entry not present in the baseline, tolerate dev-
-  only `console.warn` deprecations. Capture all three buckets in the
-  baseline for later diff. (Resolves review Q2.)
+  any new server-log entry **class** not present in the baseline
+  (timestamps and request IDs drift naturally; only error/warning-
+  level classes count), tolerate dev-only `console.warn` deprecations.
+  Capture all three buckets in the baseline for later diff. (Resolves
+  review Q2.)
 - **Build-warning delta bar.** New build-time warning *classes*
   relative to the Phase-1 baseline must be explicitly acknowledged in
   the smoke delta or filed as a follow-on bead. Numerical-count drift
@@ -155,6 +156,27 @@ Row counts captured in baseline.
   last-completed-phase noted in the MR payload; file a bead titled
   "Resume modernization from phase <N>" linking the park branch.
   Do NOT delete local commits before pushing the park branch.
+- **Soft recovery (under the 4-hour bar).** Three concrete recipes for
+  mid-phase failures that don't trigger the abort rule:
+  1. **Codemod partial-apply** (codemod errored mid-pass, leaving some
+     files rewritten and others not): `git checkout -- .` to discard
+     all working-tree changes, then re-run the codemod with the same
+     non-interactive invocation.
+  2. **`npm install` produced inconsistent tree** (lockfile and
+     `node_modules` disagree, or peer warnings differ from the prior
+     run): `rm -rf web/node_modules web/package-lock.json` and re-run
+     `npm install` (same recipe as Phase 2 step 2).
+  3. **Hand-fix commit needs revert**: `git revert <sha>` (NOT
+     `git reset` — preserves bisect history, which the per-file commit
+     discipline depends on).
+- **Post-merge regression recovery.** If the maintainer's post-merge
+  smoke checklist fails after Refinery has merged the modernization
+  commit range to `main`, the maintainer opens a revert PR (or
+  `git revert` of the merged range) targeting `v0.5-pre-modernization`
+  rather than hot-fixing on `main`. Then files a "Resume modernization
+  from <phase>" bead linking the reverted commit range. Explicit
+  parallel to the pre-merge park procedure: `main` is always the
+  rollback anchor, never the WIP surface. `v0.6` tag does not cut.
 - **Tailwind-3 + Next-16 incompatibility is a scope escalation, not an
   auto-abort.** If the blocker is specifically Tailwind 3 compatibility
   on Next 16 and no PostCSS-level workaround exists, escalate to the
@@ -223,7 +245,7 @@ Row counts captured in baseline.
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Radix dropdown-menu React 19 peer block | Medium | High | Audit before starting (Phase 1 transitive-dep check). If blocked, hand-rewrite `dropdown-menu.tsx` using current Radix version. If Radix itself blocks, invoke 4-hour abort rule. |
+| Radix dropdown-menu React 19 peer block | Medium | High | Audit before starting (Phase 1 transitive-dep check). **Polecat does NOT hand-rewrite `dropdown-menu.tsx`** — if codemod output fails hand-review, escalate to maintainer (who has Radix docs + browser access) for the rewrite. Maintainer either commits the rewrite directly to the polecat's branch via worktree, or makes the rewrite a pre-dispatch task and resumes the polecat. If Radix itself blocks, invoke 4-hour abort rule. |
 | Codemod miscompiles `dropdown-menu.tsx` (Radix composition) | Medium | High | Isolated commit for codemod output; hand-review specifically for this file; separate commit to hand-fix if needed. |
 | `/grades` serves stale data post-upgrade (silent) | Medium | High | Mutate-probe in Phase 5 smoke. Fallback: add `force-dynamic` to `/grades`. |
 | `next-themes` theme-flash on React 19 | Medium | Medium | Hard-refresh in dark mode as explicit smoke step. If flash observed, file bead; evaluate `next-themes` minor bump only if it doesn't cross a major. |
@@ -262,14 +284,13 @@ The PRD's Phase numbering (1-5) is retained with small revisions.
    capture yourself (polecat has no GUI browser).
 6. `npx tsc --noEmit` — capture error count.
 7. `npm audit --json` — capture vulnerability summary.
-8. `npx prisma migrate status` + row counts — capture DB state.
-9. Transitive-dep React-19 peer audit — note each current version and
+8. Transitive-dep React-19 peer audit — note each current version and
    latest React-19-compatible minor, without bumping yet.
-10. Commit: polecat-added sections to `notes/modernization-baseline.md`
-    + `notes/modernization-smoke.md` skeleton. The smoke-doc skeleton
-    must include these headings (bodies filled in Phase 5): `## CLI
-    setup`, `## Maintainer smoke checks`, `## Build-warning delta`,
-    `## Bundle-size delta`, `## Follow-on beads filed`.
+9. Commit: polecat-added sections to `notes/modernization-baseline.md`
+   + `notes/modernization-smoke.md` skeleton. The smoke-doc skeleton
+   must include these headings (bodies filled in Phase 5): `## CLI
+   setup`, `## Maintainer smoke checks`, `## Build-warning delta`,
+   `## Bundle-size delta`, `## Follow-on beads filed`.
 
 **Abort condition:** if any current-stack build/dev step fails, STOP.
 Upgrading on a broken baseline is incoherent.
@@ -305,11 +326,14 @@ single transitive bump pass, invoke 4-hour rule.
 ### Phase 3: Codemods
 
 **Non-interactive invocation:** both codemods below prompt by default
-(target selection, version pick, confirmation). Polecat must run them
-with non-interactive flags to avoid hanging. Check each tool's
-`--help` before invoking; typical incantation is to supply the target
-path explicitly, pre-select the version, and pipe `yes ''` or use the
-tool's `--yes`/`--force` flag if documented.
+(target selection, version pick, confirmation). **Maintainer determines
+the exact non-interactive incantation pre-dispatch** (during the
+`v0.5-pre-modernization` tag-cut + baseline-capture window) and inlines
+the literal commands here as part of the baseline commit. If
+incantations are NOT inlined at dispatch time, polecat treats it as a
+pre-flight failure: `gt escalate -s HIGH "Modernization: codemod
+incantations not inlined"` and stop. Recovery if a codemod hangs at
+runtime: Ctrl-C, `git checkout -- .`, escalate.
 
 1. `npx types-react-codemod@latest preset-19 .` (scope to `web/`;
    non-interactive per note above).
@@ -332,21 +356,22 @@ tool's `--yes`/`--force` flag if documented.
    Commit each conceptual triage-fix as its own commit (bisect
    granularity). If no triage-fixes are needed, skip this commit.
 2. For each broken shadcn component (`card.tsx`, `table.tsx`,
-   `button.tsx`, `dropdown-menu.tsx`):
+   `button.tsx`):
    - Verify codemod output; hand-patch if Radix composition is wrong.
-   - **`dropdown-menu.tsx` gets its own commit** — this is the highest-
-     risk file.
+   For `dropdown-menu.tsx`:
+   - Verify codemod output. If hand-review passes, commit normally
+     (its own isolated commit — highest-risk file).
+   - **If hand-review fails, do NOT attempt rewrite.** Escalate to
+     maintainer per Risks-table row 1.
 3. **Tailwind 3 on Next 16 compatibility probe.** After shadcn
    hand-fixes land and `npm run build` is green (so Tailwind probe
-   failures can't be misattributed to shadcn TS errors):
-   - Confirm `.next/static/css` bundle is produced.
-   - Grep `.next/server/app/grades/` HTML output for expected utility
-     classes (`bg-card`, `text-muted-foreground`). This inspects the
-     build artifact directly — no running server required.
-   - Confirm no PostCSS errors in build log.
-
-   If any of these fails, follow the Tailwind escalation rule in
-   §Trade-offs and Decisions → Decisions Made.
+   failures can't be misattributed to shadcn TS errors): grep
+   `.next/server/app/grades/` HTML output for utility classes
+   `bg-card` and `text-muted-foreground`. Both must be present in
+   the compiled HTML — if absent despite the green build, the
+   PostCSS + Tailwind pipeline silently dropped Tailwind processing.
+   Follow the Tailwind escalation rule in §Trade-offs and Decisions
+   → Decisions Made.
 4. Bump any remaining transitives flagged in Phase 1 audit — one
    commit per dep, each with a React-19-compatible minor.
 5. `npm audit` — compare against baseline, hard-gate on new
@@ -377,11 +402,12 @@ tool's `--yes`/`--force` flag if documented.
     section — either rationalized-and-accepted or filed as a follow-on
     bead. Net-new warning with no acknowledgement fails the smoke gate.
 2b. **Server-log delta.** Diff the step-1 cold-start-plus-route-serving
-    capture against the Phase-1 step-3 cold-start-plus-route-serving
+    capture against the Phase-1 step-4 cold-start-plus-route-serving
     baseline in `notes/modernization-baseline.md` (apples-to-apples;
-    same scope on both sides). Any new server-log entry not present in
-    the baseline counts as a runtime error per §Decisions Made
-    "Runtime error bar." Net-new entry without acknowledgement fails
+    same scope on both sides). Any new error/warning-level entry
+    *class* (not literal entry — timestamps and request IDs drift
+    naturally) counts as a runtime error per §Decisions Made
+    "Runtime error bar." Net-new class without acknowledgement fails
     the smoke gate.
 3. Populate `notes/modernization-smoke.md` with the maintainer smoke
    checklist. **Lead the populated doc with a "CLI setup" block**
