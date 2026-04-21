@@ -329,7 +329,20 @@ single transitive bump pass, invoke 4-hour rule.
     section — either rationalized-and-accepted or filed as a follow-on
     bead. Net-new warning with no acknowledgement fails the smoke gate.
 3. Populate `notes/modernization-smoke.md` with the maintainer smoke
-   checklist:
+   checklist. **Lead the populated doc with a "CLI setup" block**
+   reproducing the maintainer prerequisites from §Interface, because
+   the smoke doc is what the maintainer actually reads during smoke
+   (not the design-doc):
+
+   ```
+   # CLI setup (run before smoke checks)
+   git pull --rebase
+   npm ci                      # must complete with no peer-dep warnings
+   npx prisma generate         # required unless postinstall was opted in (see design OQ #1)
+   npm run dev
+   ```
+
+   Then follow with the bulleted smoke checks:
    - `/` renders.
    - `/grades` renders all seeded subjects with letters + percentages.
    - Click subject → `/subject/[id]` renders detail.
