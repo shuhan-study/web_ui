@@ -53,7 +53,7 @@ not a caching redesign.
 ### Key Components
 
 - **Pre-upgrade anchor tag** `v0.5-pre-modernization` on `main` (cut by
-  maintainer or Refinery, not by the polecat).
+  the maintainer — see Tag ownership decision).
 - **Baseline artifact** `notes/modernization-baseline.md` capturing build
   output, dev startup log, per-route browser-console snapshot, `tsc
   --noEmit` error count, `.next/static` bundle size, `npm audit` output,
@@ -119,6 +119,11 @@ Row counts captured in baseline.
   any new server-log entry not present in the baseline, tolerate dev-
   only `console.warn` deprecations. Capture all three buckets in the
   baseline for later diff. (Resolves review Q2.)
+- **Build-warning delta bar.** New build-time warning *classes*
+  relative to the Phase-1 baseline must be explicitly acknowledged in
+  the smoke delta or filed as a follow-on bead. Numerical-count drift
+  on pre-existing warning classes is tolerated. (Extends Q2 bar to
+  build output.)
 - **Smoke includes mutate-probe for `/grades` data freshness.**
   (Resolves review Q3.)
 - **Smoke includes prod-bundle smoke.** `npm run build && npm run
@@ -139,6 +144,18 @@ Row counts captured in baseline.
 - **4-hour blocker abort rule.** Pinned by problem statement. On abort:
   park branch, file bead, leave `main` untouched, no `v0.6` tag.
   (Resolves review Q5.)
+- **Tailwind-3 + Next-16 incompatibility is a scope escalation, not an
+  auto-abort.** If the blocker is specifically Tailwind 3 compatibility
+  on Next 16 and no PostCSS-level workaround exists, escalate to the
+  maintainer for a scope decision (include Tailwind 4 in this project
+  vs. abort) *before* invoking the 4-hour rule. Tracks PRD Constraint
+  C3: "escalate to include Tailwind 4."
+- **Tag ownership.** The **maintainer** cuts `v0.5-pre-modernization`
+  on `main` before dispatching the polecat, and cuts
+  `v0.6-modernization-complete` after the post-merge smoke checklist
+  passes. Refinery does NOT cut either tag. Rationale: both tags are
+  semantically human release-readiness decisions, not merge-pipeline
+  events.
 - **Polecat stops at `npm run build` green + `dev` cold-start clean.**
   Maintainer owns browser smoke. `gt done` fires at the polecat's gate;
   the maintainer's smoke is a pre-tag gate, not a polecat gate.
@@ -148,23 +165,19 @@ Row counts captured in baseline.
 
 ### Open Questions (need maintainer decision before Phase 1 starts)
 
-1. **Who cuts `v0.5-pre-modernization` and `v0.6-modernization-complete`?**
-   Polecats don't push to `main`. Proposed: maintainer cuts the
-   pre-upgrade tag before dispatch; Refinery or maintainer cuts the
-   completion tag after merge. Please confirm.
-2. **Add `postinstall: "prisma generate"` and `engines.node: ">=20.9"`
+1. **Add `postinstall: "prisma generate"` and `engines.node: ">=20.9"`
    in this project?** Both are cheap, in-spirit with the Modernization
    theme, technically beyond the literal framework bump. Recommend:
    yes to both. Please confirm or veto.
-3. **ESLint 8 → 9 disposition if forced by `eslint-config-next@16`.**
+2. **ESLint 8 → 9 disposition if forced by `eslint-config-next@16`.**
    Three options: (a) in-scope migrate to flat config; (b) pin older
    `eslint-config-next` (defeats upgrade); (c) accept broken `npm
    run lint` and file follow-on bead (does not break Goal 3, since
    `build` doesn't run lint). Recommend (c) unless (a) is near-free
    after seeing the actual break.
-4. **Browser target naming.** Recommend: Chrome stable on the
+3. **Browser target naming.** Recommend: Chrome stable on the
    maintainer's laptop, named explicitly. Please confirm.
-5. **Error-boundary smoke throw location.** Recommend: Client Component
+4. **Error-boundary smoke throw location.** Recommend: Client Component
    throw on `/grades`, exercises the client-boundary render path that
    changed most between React 18 → 19. Please confirm.
 
@@ -211,7 +224,10 @@ The PRD's Phase numbering (1-5) is retained with small revisions.
 
 1. Confirm Node version, record in baseline doc.
 2. `npm run build` on current stack — capture stdout+stderr.
-3. `npm run dev` cold-start — capture 10s of server log.
+3. `npm run dev` cold-start — capture 10s of server log, then exercise
+   `/`, `/grades`, and `/subject/[id]` once each and capture the full
+   server log covering cold-start plus route-serving. Phase 5 diffs
+   against this cold-start-plus-route-serving window.
 4. Browser: `/`, `/grades`, `/subject/[id]` — capture console tab
    per route (errors, warnings, info).
 5. `npx tsc --noEmit` — capture error count.
@@ -263,16 +279,26 @@ single transitive bump pass, invoke 4-hour rule.
 ### Phase 4: Hand-fixes and transitive-dep cleanup
 
 1. Run `npm run build`. Triage errors.
-2. For each broken shadcn component (`card.tsx`, `table.tsx`,
+2. **Tailwind 3 on Next 16 compatibility probe.** After `npm run build`
+   triage, before shadcn component hand-fixes:
+   - Confirm `.next/static/css` bundle is produced.
+   - Verify Tailwind utility classes resolve in rendered HTML (spot-
+     check `bg-card` or `text-muted-foreground` in curl output for
+     `/grades`).
+   - Confirm no PostCSS errors in build log.
+
+   If any of these fails, follow the Tailwind escalation rule in
+   §Trade-offs and Decisions → Decisions Made.
+3. For each broken shadcn component (`card.tsx`, `table.tsx`,
    `button.tsx`, `dropdown-menu.tsx`):
    - Verify codemod output; hand-patch if Radix composition is wrong.
    - **`dropdown-menu.tsx` gets its own commit** — this is the highest-
      risk file.
-3. Bump any remaining transitives flagged in Phase 1 audit — one
+4. Bump any remaining transitives flagged in Phase 1 audit — one
    commit per dep, each with a React-19-compatible minor.
-4. `npm audit` — compare against baseline, hard-gate on new
+5. `npm audit` — compare against baseline, hard-gate on new
    High/Critical runtime CVE.
-5. `npm run build` — must be green. Commit if any hand-fixes landed.
+6. `npm run build` — must be green. Commit if any hand-fixes landed.
 
 ### Phase 5: Smoke + tag prep
 
@@ -280,9 +306,17 @@ single transitive bump pass, invoke 4-hour rule.
 2. Polecat smoke (machine-verifiable):
    - `tsc --noEmit` clean (or documented-unchanged error count).
    - `npm run build` green.
-   - `npm run dev` boots, `curl http://localhost:3000/grades` returns
+   - `npm run dev` boots, `curl http://localhost:3000/`,
+     `curl http://localhost:3000/grades`, and
+     `curl http://localhost:3000/subject/<first-seed-id>` each return
      200 with expected HTML markers.
    - `npm run start` (post-build) smokes the same three routes.
+2a. **Build-warning delta.** Diff `npm run build` stdout+stderr against
+    the Phase-1 baseline capture in `notes/modernization-baseline.md`.
+    Any new warning *class* (not count) must be acknowledged in
+    `notes/modernization-smoke.md` under a "build-warning delta"
+    section — either rationalized-and-accepted or filed as a follow-on
+    bead. Net-new warning with no acknowledgement fails the smoke gate.
 3. Populate `notes/modernization-smoke.md` with the maintainer smoke
    checklist:
    - `/` renders.
@@ -290,6 +324,10 @@ single transitive bump pass, invoke 4-hour rule.
    - Click subject → `/subject/[id]` renders detail.
    - Dark-mode toggle flips; hard-refresh in dark mode — no light
      flash.
+   - Open DevTools Console on each of `/`, `/grades`, `/subject/[id]`;
+     confirm no new `console.error` entries beyond the baseline
+     capture in `notes/modernization-baseline.md`. Deprecation
+     `console.warn` entries are tolerated but noted.
    - GeistVF fonts load, no `.woff2` 404 in Network panel.
    - Force a throw in a Client Component on `/grades`, confirm
      `error.tsx` renders.
