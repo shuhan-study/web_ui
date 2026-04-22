@@ -225,17 +225,25 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
    time, the polecat does NOT add `postinstall` or `engines.node`**;
    defaults stay out and a follow-on bead "Add postinstall +
    engines.node pin" is filed under Modernization v2.
+
+   **Decision:** Yes to both. Add `"postinstall": "prisma generate"` to `scripts` and `"engines": { "node": ">=20.9" }`.
 2. **ESLint 8 → 9 disposition if forced by `eslint-config-next@16`.**
    Three options: (a) in-scope migrate to flat config; (b) pin older
    `eslint-config-next` (defeats upgrade); (c) accept broken `npm
    run lint` and file follow-on bead (does not break Goal 3, since
    `build` doesn't run lint). Recommend (c) unless (a) is near-free
    after seeing the actual break.
+
+   **Decision:** Attempt (a) — flat-config migration — only if the actual break from `eslint-config-next@16` can be resolved in ≤ 30 min. If the migration exceeds that budget, fall back to (c): accept broken `npm run lint` and file a follow-on bead under Modernization v2.
 3. **Browser target naming.** Recommend: Chrome stable on the
    maintainer's laptop, named explicitly. Please confirm.
+
+   **Decision:** Chrome stable on the maintainer's 2019 Mac Pro (Intel).
 4. **Error-boundary smoke throw location.** Recommend: Client Component
    throw on `/grades`, exercises the client-boundary render path that
    changed most between React 18 → 19. Please confirm.
+
+   **Decision:** (A) — Client Component throw on `/grades`.
 
 ### Trade-offs
 
