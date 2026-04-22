@@ -371,13 +371,17 @@ pre-flight failure: `gt escalate -s HIGH "Modernization: codemod
 incantations not inlined"` and stop. Recovery if a codemod hangs at
 runtime: Ctrl-C, `git checkout -- .`, escalate.
 
-1. `npx types-react-codemod@latest preset-19 .` (scope to `web/`;
-   non-interactive per note above).
+1. `npx types-react-codemod@latest --yes preset-19 .` (scope to `web/`;
+   `--yes` bypasses all prompts; verified non-interactive 2026-04-22).
 2. Hand-review every diff. Flag any rewrite inside a file that imports
    a Radix primitive.
 3. Commit: `chore: apply types-react-codemod preset-19`.
-4. `npx @next/codemod@latest upgrade latest` (scope to `web/`;
-   non-interactive per note above).
+4. **ESCALATED — see wu-8eo.7.** The `@next/codemod upgrade` meta-command
+   has no non-interactive mode (verified 2026-04-22: `--no-interactive`
+   unknown, `--dry` only applies to top-level command, `yes |` piping
+   blocked by install requirement). Phase 3 will be redesigned to replace
+   this step with individual codemods + manual install per wu-8eo.7.
+   **Do not dispatch Phase 3 to a polecat until wu-8eo.7 closes.**
 5. Hand-review every diff. Particular attention: `web/app/subject/
    [id]/page.tsx` — confirm `params` became `Promise` with `await`.
 6. Commit: `chore: apply @next/codemod upgrade latest`.
