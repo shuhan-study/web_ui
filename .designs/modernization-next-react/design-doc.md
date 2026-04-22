@@ -75,6 +75,17 @@ not a caching redesign.
 
 ### Interface
 
+**Fresh-clone bootstrap** (do once per clone — applies to maintainer clones AND polecat workspaces):
+
+```
+cd web                       # all npm/npx commands in this doc run from web/
+cp .env.example .env         # creates DATABASE_URL=file:./dev.db
+npx prisma db push           # creates tables in dev.db
+npx prisma db seed           # loads seed data (or hand-seed if script not configured)
+```
+
+Skip any step already done in the current clone. `.env` and `dev.db` are gitignored, so a fresh clone always needs this.
+
 **Maintainer's post-upgrade CLI path** (the only user-facing API surface):
 
 ```
