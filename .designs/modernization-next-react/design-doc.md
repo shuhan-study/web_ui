@@ -18,7 +18,7 @@ and now pinned by this design:
    possible + `'use cache'` opt-in model replaces the implicit fetch cache.
    `/grades` reads from Prisma (not `fetch`), so the risk is default-static
    freezing of seed-time data. Mutate-probe in Phase 5 is a hard gate.
-3. **Reproducibility for the maintainer.** Invisibility for Shuhan requires
+3. **Reproducibility for the maintainer.** End-user invisibility requires
    the maintainer to cleanly `git pull && npm ci && npx prisma generate &&
    npm run dev` without manual recovery. `postinstall` script and
    `engines.node` pin are cheap enablers.
@@ -164,8 +164,10 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
      non-interactive invocation.
   2. **`npm install` produced inconsistent tree** (lockfile and
      `node_modules` disagree, or peer warnings differ from the prior
-     run): `rm -rf web/node_modules web/package-lock.json` and re-run
-     `npm install` (same recipe as Phase 2 step 2).
+     run): `rm -rf web/node_modules web/package-lock.json web/.next`
+     and re-run `npm install` (same recipe as Phase 2 step 2 —
+     includes `.next` because a stale build cache compiled against
+     the old tree compounds the confusion).
   3. **Hand-fix commit needs revert**: `git revert <sha>` (NOT
      `git reset` — preserves bisect history, which the per-file commit
      discipline depends on).
@@ -194,10 +196,12 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
   browser + release-readiness judgment that the polecat doesn't have;
   grouping them with tag ownership puts the full human-side
   pre-dispatch duty in one place.
-- **Polecat stops at `npm run build` green + `dev` cold-start clean.**
-  Maintainer owns browser smoke. `gt done` fires at the polecat's gate;
-  the maintainer's smoke is a pre-tag gate, not a polecat gate.
-  (Resolves review "browser smoke ownership".)
+- **Polecat stops at the machine-verifiable gate** (tsc clean + build
+  green + dev-boot + start-boot + curl probes on all three routes — see
+  Phase 5 step 2 for the full list). Maintainer owns browser smoke.
+  `gt done` fires at the polecat's gate; the maintainer's smoke is a
+  pre-tag gate, not a polecat gate. (Resolves review "browser smoke
+  ownership".)
 - **No `'use cache'` annotations added.** Pinned by Non-Goal. The
   caching redesign is a future project.
 
@@ -246,7 +250,7 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | Radix dropdown-menu React 19 peer block | Medium | High | Audit before starting (Phase 1 transitive-dep check). **Polecat does NOT hand-rewrite `dropdown-menu.tsx`** — if codemod output fails hand-review, escalate to maintainer (who has Radix docs + browser access) for the rewrite. Maintainer either commits the rewrite directly to the polecat's branch via worktree, or makes the rewrite a pre-dispatch task and resumes the polecat. If Radix itself blocks, invoke 4-hour abort rule. |
-| Codemod miscompiles `dropdown-menu.tsx` (Radix composition) | Medium | High | Isolated commit for codemod output; hand-review specifically for this file; separate commit to hand-fix if needed. |
+| Codemod miscompiles `dropdown-menu.tsx` (Radix composition) | Medium | High | Isolated commit for codemod output; hand-review specifically for this file. If hand-review passes, commit as-is. **If it fails, escalate per row 1 — polecat does not hand-rewrite.** |
 | `/grades` serves stale data post-upgrade (silent) | Medium | High | Mutate-probe in Phase 5 smoke. Fallback: add `force-dynamic` to `/grades`. |
 | `next-themes` theme-flash on React 19 | Medium | Medium | Hard-refresh in dark mode as explicit smoke step. If flash observed, file bead; evaluate `next-themes` minor bump only if it doesn't cross a major. |
 | Async-`params` missed in `web/app/subject/[id]/page.tsx` | Low | High | Explicit grep + hand-fix commit even if codemod reports handled. |
@@ -275,22 +279,27 @@ The PRD's Phase numbering (1-5) is retained with small revisions.
    `npm run dev` run (dev would pollute `.next/` with HMR chunks and
    contaminate the prod-build measurement).
 4. `npm run dev` cold-start — capture 10s of server log, then exercise
-   `/`, `/grades`, and `/subject/[id]` once each and capture the full
-   server log covering cold-start plus route-serving. Phase 5 diffs
-   against this cold-start-plus-route-serving window.
-5. Browser-console baseline: verify the section already populated by
-   the maintainer pre-dispatch (see Tag ownership decision) exists and
-   covers all three routes. If missing, escalate — do NOT attempt to
-   capture yourself (polecat has no GUI browser).
-6. `npx tsc --noEmit` — capture error count.
-7. `npm audit --json` — capture vulnerability summary.
-8. Transitive-dep React-19 peer audit — note each current version and
+   `/`, `/grades`, and `/subject/[id]` once each using
+   `curl -sS -o /tmp/baseline-<route>.html -w '%{http_code}\n'` and
+   capture the full server log covering cold-start plus route-serving.
+   Phase 5 diffs against this cold-start-plus-route-serving window.
+   **Abort condition for this step:** process exits non-zero within
+   10s of cold-start, OR the captured log window contains a line
+   matching `^\s*(⨯|Error:|UnhandledPromiseRejection|FATAL)` — Next
+   16's cross-mark error prefix + explicit Error/rejection lines, NOT
+   the word "error" incidentally appearing in normal log summaries.
+   (Browser-console baseline was verified in step 0 pre-flight; no
+   polecat action here.)
+5. `npx tsc --noEmit` — capture error count.
+6. `npm audit --json` — capture vulnerability summary.
+7. Transitive-dep React-19 peer audit — note each current version and
    latest React-19-compatible minor, without bumping yet.
-9. Commit: polecat-added sections to `notes/modernization-baseline.md`
+8. Commit: polecat-added sections to `notes/modernization-baseline.md`
    + `notes/modernization-smoke.md` skeleton. The smoke-doc skeleton
    must include these headings (bodies filled in Phase 5): `## CLI
    setup`, `## Maintainer smoke checks`, `## Build-warning delta`,
-   `## Bundle-size delta`, `## Follow-on beads filed`.
+   `## Server-log delta`, `## Bundle-size delta`, `## Follow-on
+   beads filed`.
 
 **Abort condition:** if any current-stack build/dev step fails, STOP.
 Upgrading on a broken baseline is incoherent.
@@ -310,10 +319,18 @@ Upgrading on a broken baseline is incoherent.
 2. Delete `web/node_modules`, `web/package-lock.json`, **and
    `web/.next`** (cross-major Next build caches can cause false
    positives and false negatives on the new framework's build).
-3. `npm install` — no `--legacy-peer-deps`.
-4. If peer-dep resolution fails with a single blocker, bump just that
-   transitive to its latest React-19-compatible minor (one extra
-   `package.json` edit). Re-run `npm install`.
+3. `npm install` — no `--legacy-peer-deps`. **Acceptance:** exit code 0
+   AND `npm install 2>&1 | grep -E 'WARN (ERESOLVE|peer dep)'` returns
+   no matches. On any peer-warn match → step 4. On non-zero exit → step
+   4 if the error names exactly one conflicting package, else invoke
+   4-hour rule.
+4. If peer-dep resolution fails with a **single blocker** — defined as
+   the `ERESOLVE`/`could not resolve` stanza citing exactly one
+   package name in its `found:` / `required by:` hops (verify:
+   `npm install 2>&1 | grep -E '^(found|required by):' | sort -u | wc -l`
+   equals 1) — bump just that transitive to its latest React-19-
+   compatible minor (one extra `package.json` edit). Re-run `npm
+   install`. Otherwise invoke 4-hour rule.
 5. **`npx prisma generate`** — required unless OQ #1 opted into
    `postinstall` (in which case step 3 already ran it). Without this,
    Phase 4 build and Phase 5 dev/start will fail on a stale or missing
@@ -361,8 +378,13 @@ runtime: Ctrl-C, `git checkout -- .`, escalate.
    For `dropdown-menu.tsx`:
    - Verify codemod output. If hand-review passes, commit normally
      (its own isolated commit — highest-risk file).
-   - **If hand-review fails, do NOT attempt rewrite.** Escalate to
-     maintainer per Risks-table row 1.
+   - **If hand-review fails, do NOT attempt rewrite.** Escalate:
+     `gt escalate -s HIGH "Modernization: dropdown-menu rewrite
+     needed"` with a summary of the codemod-review failure, then
+     `gt handoff -s "Waiting on dropdown-menu rewrite" -m "<summary>"`
+     — the polecat does NOT sit idle. On resume, `git pull` the branch
+     fresh (maintainer may have pushed the rewrite directly) and
+     proceed from Phase 4 step 3.
 3. **Tailwind 3 on Next 16 compatibility probe.** After shadcn
    hand-fixes land and `npm run build` is green (so Tailwind probe
    failures can't be misattributed to shadcn TS errors): grep
@@ -375,7 +397,12 @@ runtime: Ctrl-C, `git checkout -- .`, escalate.
 4. Bump any remaining transitives flagged in Phase 1 audit — one
    commit per dep, each with a React-19-compatible minor.
 5. `npm audit` — compare against baseline, hard-gate on new
-   High/Critical runtime CVE.
+   High/Critical **runtime** CVE. Runtime-only recipe:
+   `jq '.vulnerabilities | to_entries | map(select(.value.severity | IN("high","critical"))) | map(.key)' < <(npm audit --omit=dev --json)`
+   diffed against the same jq expression applied to Phase 1's
+   `npm audit --json` baseline (run the baseline version through
+   `--omit=dev` at diff time since step 6 captured the full audit).
+   Hard-gate on any net-new entry.
 6. `npm run build` — must be green. Commit any residual hand-fixes
    not already committed above.
 
@@ -383,32 +410,51 @@ runtime: Ctrl-C, `git checkout -- .`, escalate.
 
 1. **If resuming from a killed session, re-run `npx prisma generate`**
    first (unless OQ #1 opted into `postinstall`). Then `npm run dev`
-   cold-start; serve `/`, `/grades`, `/subject/[id]` once each (matches
-   the Phase-1 baseline scope); capture the full server log covering
-   cold-start plus route-serving. **Stop the dev server after capture
-   so step 2's `npm run start` can bind to port 3000.**
+   cold-start; `curl -sS -o /tmp/smoke-dev-<route>.html -w '%{http_code}\n'`
+   against `/`, `/grades`, and `/subject/<first-seed-id>` once each
+   (matches the Phase-1 baseline scope AND satisfies the 200-check —
+   this is a single dev session covering both purposes). Capture the
+   full server log covering cold-start plus route-serving. **Stop the
+   dev server after capture so step 2's `npm run start` can bind to
+   port 3000.**
 2. Polecat smoke (machine-verifiable):
    - `tsc --noEmit` clean (or documented-unchanged error count).
    - `npm run build` green.
-   - `npm run dev` boots, `curl http://localhost:3000/`,
-     `curl http://localhost:3000/grades`, and
-     `curl http://localhost:3000/subject/<first-seed-id>` each return
-     200 with expected HTML markers.
-   - `npm run start` (post-build) smokes the same three routes.
+   - Step-1 dev curls: HTTP 200 for all three routes **and** each
+     response body contains its route-specific marker:
+     - `/` → grep for a text anchor present in the current
+       `web/app/page.tsx` (polecat reads the file to pick the anchor;
+       a heading or CTA string).
+     - `/grades` → grep for at least one subject title present in the
+       Prisma seed AND at least one of `%` or a letter-grade
+       character (`A`/`B`/`C`/`D`/`F`).
+     - `/subject/<first-seed-id>` → grep for the matching subject
+       title.
+   - `npm run start` (post-build) — repeat the same curl+marker probe
+     against all three routes; markers must match dev output.
 2a. **Build-warning delta.** Diff `npm run build` stdout+stderr against
     the Phase-1 baseline capture in `notes/modernization-baseline.md`.
-    Any new warning *class* (not count) must be acknowledged in
-    `notes/modernization-smoke.md` under a "build-warning delta"
-    section — either rationalized-and-accepted or filed as a follow-on
-    bead. Net-new warning with no acknowledgement fails the smoke gate.
+    Class-extraction recipe (strip noise before sort/diff):
+    `sed -E 's/\x1b\[[0-9;]*m//g; s#/[A-Za-z0-9_./-]+/web/#<PATH>/web/#g; s/:[0-9]+:[0-9]+//g' | sort -u`
+    — strips ANSI color, absolute paths under `web/`, and line:col
+    numbers. Any new warning *class* (not count) after this
+    normalization must be acknowledged under `## Build-warning delta`
+    in `notes/modernization-smoke.md` — either rationalized-and-
+    accepted or filed as a follow-on bead. Net-new class without
+    acknowledgement fails the smoke gate.
 2b. **Server-log delta.** Diff the step-1 cold-start-plus-route-serving
     capture against the Phase-1 step-4 cold-start-plus-route-serving
     baseline in `notes/modernization-baseline.md` (apples-to-apples;
-    same scope on both sides). Any new error/warning-level entry
-    *class* (not literal entry — timestamps and request IDs drift
-    naturally) counts as a runtime error per §Decisions Made
-    "Runtime error bar." Net-new class without acknowledgement fails
-    the smoke gate.
+    same scope on both sides). Filter+normalize before diff:
+    `grep -Ei '^\s*(err|error|warn|warning|⨯|✗)\b' | sed -E 's/\x1b\[[0-9;]*m//g; s#/[A-Za-z0-9_./-]+/web/#<PATH>/web/#g; s/:[0-9]+:[0-9]+//g; s/\[[0-9]+ms\]//g' | sort -u`
+    — keeps only error/warning-level lines, strips ANSI color,
+    absolute paths under `web/`, line:col numbers, and ms-timings
+    (request IDs and timestamps are naturally excluded by the
+    error/warning-level filter). Any new class counts as a runtime
+    error per §Decisions Made "Runtime error bar." Record any
+    acknowledged net-new class under `## Server-log delta` in
+    `notes/modernization-smoke.md`. Net-new class without
+    acknowledgement fails the smoke gate.
 3. Populate `notes/modernization-smoke.md` with the maintainer smoke
    checklist. **Lead the populated doc with a "CLI setup" block**
    reproducing the maintainer prerequisites from §Interface, because
@@ -440,9 +486,15 @@ runtime: Ctrl-C, `git checkout -- .`, escalate.
      `/grades`; confirm new value appears within one reload. Revert
      the mutated row to its seeded value after the probe, or re-run
      `npx prisma db seed`.
-4. Capture `.next/static` size diff; note in smoke doc.
+4. **Bundle-size data point (informational only; no threshold, no
+   action — see Risks-table "Bundle size 2× blow-up" row).** Record
+   absolute pre/post `.next/static` sizes and the ratio in
+   `notes/modernization-smoke.md` under `## Bundle-size delta`.
 5. File follow-on beads:
    - "Modernization v2 — Tailwind 3 → 4."
+   - If OQ #1 was unresolved at dispatch and `postinstall` /
+     `engines.node` were not added: "Add postinstall + engines.node
+     pin" under Modernization v2.
    - If ESLint 8 → 9 forced and punted: "Migrate to ESLint 9 flat
      config."
    - If `/grades` needed `force-dynamic`: "Caching redesign inherits
