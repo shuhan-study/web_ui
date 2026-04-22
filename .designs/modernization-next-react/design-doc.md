@@ -228,13 +228,24 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
 
    **Decision:** Yes to both. Add `"postinstall": "prisma generate"` to `scripts` and `"engines": { "node": ">=20.9" }`.
 2. **ESLint 8 → 9 disposition if forced by `eslint-config-next@16`.**
-   Three options: (a) in-scope migrate to flat config; (b) pin older
-   `eslint-config-next` (defeats upgrade); (c) accept broken `npm
-   run lint` and file follow-on bead (does not break Goal 3, since
+   Note: separately from the ESLint version question, Next 16 also
+   REMOVED the `next lint` subcommand itself. The `next-lint-to-eslint-cli`
+   codemod (Phase 3) rewrites `package.json` scripts so `npm run lint`
+   invokes `eslint` CLI directly — this migration is unconditional.
+   Three options for the ESLint version/config dimension: (a) in-scope
+   migrate to flat config; (b) pin older `eslint-config-next` (defeats
+   upgrade); (c) accept non-working `npm run lint` after the codemod
+   rewrite and file follow-on bead (does not break Goal 3, since
    `build` doesn't run lint). Recommend (c) unless (a) is near-free
    after seeing the actual break.
 
-   **Decision:** Attempt (a) — flat-config migration — only if the actual break from `eslint-config-next@16` can be resolved in ≤ 30 min. If the migration exceeds that budget, fall back to (c): accept broken `npm run lint` and file a follow-on bead under Modernization v2.
+   **Decision:** The `next-lint-to-eslint-cli` codemod in Phase 3 is
+   unconditional and migrates `npm run lint` from `next lint` (removed)
+   to `eslint` CLI. For the ESLint version/config dimension: attempt
+   (a) — flat-config migration — only if the actual break from
+   `eslint-config-next@16` can be resolved in ≤ 30 min. If the migration
+   exceeds that budget, fall back to (c): accept non-working `npm run
+   lint` and file a follow-on bead under Modernization v2.
 3. **Browser target naming.** Recommend: Chrome stable on the
    maintainer's laptop, named explicitly. Please confirm.
 
@@ -361,33 +372,65 @@ single transitive bump pass, invoke 4-hour rule.
 
 ### Phase 3: Codemods
 
-**Non-interactive invocation:** both codemods below prompt by default
-(target selection, version pick, confirmation). **Maintainer determines
-the exact non-interactive incantation pre-dispatch** (during the
-`v0.5-pre-modernization` tag-cut + baseline-capture window) and inlines
-the literal commands here as part of the baseline commit. If
-incantations are NOT inlined at dispatch time, polecat treats it as a
-pre-flight failure: `gt escalate -s HIGH "Modernization: codemod
-incantations not inlined"` and stop. Recovery if a codemod hangs at
-runtime: Ctrl-C, `git checkout -- .`, escalate.
+All invocations below are non-interactive — verified against the source
+of `@next/codemod` at `packages/next-codemod` in `vercel/next.js` as of
+2026-04-22. Individual `@next/codemod` transforms bypass the top-level
+interactive prompts by passing slug + path explicitly, plus `-f` to skip
+the git-status safety check. `codemod@latest` uses `--no-interactive`;
+`types-react-codemod` uses `--yes`.
 
-1. `npx types-react-codemod@latest --yes preset-19 .` (scope to `web/`;
-   `--yes` bypasses all prompts; verified non-interactive 2026-04-22).
-2. Hand-review every diff. Flag any rewrite inside a file that imports
-   a Radix primitive.
-3. Commit: `chore: apply types-react-codemod preset-19`.
-4. **ESCALATED — see wu-8eo.7.** The `@next/codemod upgrade` meta-command
-   has no non-interactive mode (verified 2026-04-22: `--no-interactive`
-   unknown, `--dry` only applies to top-level command, `yes |` piping
-   blocked by install requirement). Phase 3 will be redesigned to replace
-   this step with individual codemods + manual install per wu-8eo.7.
-   **Do not dispatch Phase 3 to a polecat until wu-8eo.7 closes.**
-5. Hand-review every diff. Particular attention: `web/app/subject/
-   [id]/page.tsx` — confirm `params` became `Promise` with `await`.
-6. Commit: `chore: apply @next/codemod upgrade latest`.
-7. Grep for `params.`, `searchParams.`, `cookies()`, `headers()`,
-   `draftMode()`. For any touch point not rewritten, hand-fix.
-8. Commit (if any): `fix: await async params/searchParams/headers`.
+**Codemod selection:** These 9 invocations replace the single
+`@next/codemod upgrade latest` meta-command, which has no non-interactive
+mode. The 7 Next codemods are the subset applicable to Next 14.2.35 → 16.x
+per the version slicing in `suggestCodemods` (`bin/upgrade.ts`).
+`next-request-geo-ip` is intentionally omitted: it has an unbypassable
+"Is your app deployed to Vercel?" prompt, and web_ui is not deployed to
+Vercel (OQ #3), so the codemod would skip anyway.
+
+**Commit granularity:** Codemods are grouped into themes for bisect
+granularity. Skip a theme's commit if all codemods in that theme produce
+empty diffs.
+
+**Recovery:** if any codemod hangs at runtime despite non-interactive
+verification, Ctrl-C → `git reset --hard HEAD` →
+`gt escalate -s HIGH "Modernization: codemod <slug> hanging"`.
+
+**Run in this order:**
+
+1. **Runtime API changes** — two codemods, one commit:
+   a. `npx --yes @next/codemod@latest next-async-request-api web/ -f`
+   b. `npx --yes @next/codemod@latest app-dir-runtime-config-experimental-edge web/ -f`
+   c. Commit: `chore: apply Next 15 runtime-api codemods`.
+
+2. **Config/tooling migrations** — three codemods, one commit:
+   a. `npx --yes @next/codemod@latest next-experimental-turbo-to-turbopack web/ -f`
+   b. `npx --yes @next/codemod@latest next-lint-to-eslint-cli web/ -f`
+      (Next 16 removed `next lint`; this is the migration path. See OQ #2.)
+   c. `npx --yes @next/codemod@latest middleware-to-proxy web/ -f`
+   d. Commit: `chore: apply Next 15/16 config-migration codemods`.
+
+3. **Deprecation removals** — two codemods, one commit:
+   a. `npx --yes @next/codemod@latest remove-unstable-prefix web/ -f`
+   b. `npx --yes @next/codemod@latest remove-experimental-ppr web/ -f`
+   c. Commit: `chore: apply Next 16 deprecation-removal codemods`.
+
+4. **React 19 migration recipe:**
+   `(cd web && npx --yes codemod@latest react/19/migration-recipe --no-interactive)`
+   → commit: `chore: apply react/19/migration-recipe`.
+
+5. **React 19 TypeScript types:**
+   `(cd web && npx --yes types-react-codemod@latest --yes preset-19 .)`
+   → commit: `chore: apply types-react-codemod preset-19`.
+
+**Hand-review pass** (after all codemod commits land):
+
+6. Review the codemod commits. Particular attention: `web/app/subject/[id]/page.tsx`
+   — confirm `params` became `Promise<…>` with `await`. Flag any rewrite inside
+   a file that imports a Radix primitive.
+7. Grep for stragglers `next-async-request-api` may have missed: `params.`,
+   `searchParams.`, `cookies()`, `headers()`, `draftMode()`. For any touch point
+   not rewritten, hand-fix.
+8. Commit (if any straggler fixes): `fix: await async params/searchParams/headers`.
 
 ### Phase 4: Hand-fixes and transitive-dep cleanup
 
