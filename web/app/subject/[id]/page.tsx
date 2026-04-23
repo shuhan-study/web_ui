@@ -3,11 +3,12 @@ import { fetchSubjectById } from '@/utils/actions';
 import AssignmentsTable from '@/components/assignments/AssignmentsTable';
 import CategoryBreakdown from '@/components/assignments/CategoryBreakdown';
 
-export default async function SubjectPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default async function SubjectPage(
+  props: {
+    params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
   const subject = await fetchSubjectById(params.id);
   if (!subject) notFound();
 
