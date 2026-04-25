@@ -128,8 +128,13 @@ beads, one fan-in deploy bead, one verification bead, one tag bead.
   zero-state copy in both surfaces
 - `web/app/error.tsx` — full rewrite (current copy is "Something went
   wrong" + a "Try again" button; needs kid-readable replacement)
+- `web/app/robots.ts` — new file (B8b), Next 13+ MetadataRoute
+  returning a disallow-all `Robots` object
 - `web/package.json` — add `"reseed"` script: `prisma db seed && git
-  add prisma/dev.db ../data/seed/grades.json`
+  add prisma/dev.db data/seed/grades.json`
+  (path is `web/`-relative because `npm run` runs from `web/`; per
+  plan-review r3 C-M1, the earlier `../data/seed/grades.json` was a
+  bug — the seed JSON lives at `web/data/seed/grades.json`)
 - New: `notes/deploy-2026-04-25/smoke.md` — checked-in smoke checklist
   with `reseed cycle: ✅ <date>` stamp
 
@@ -540,10 +545,18 @@ code-touching beads)**
   answer to seed-anonymization is **yes**. If **no**, this bead is
   closed at creation with the privacy-waiver text logged in PLAN.md
   decision log.
-- Acceptance (yes branch): `web/data/seed/grades.json` and
-  `web/prisma/seed.ts` contain only first-name + generic school
-  name + initials-only teachers; `npm run seed` re-runs cleanly;
-  resulting `dev.db` is staged for B2's atomic commit.
+- Acceptance (yes branch) — machine-checkable patterns:
+  - **Names:** first-name only, no surnames anywhere in
+    `web/data/seed/grades.json` or `web/prisma/seed.ts`.
+  - **School:** literal string `"Middle School"` (no real school
+    name).
+  - **Teachers:** `Ms. <Initial>.` or `Mr. <Initial>.` format only;
+    no real surnames.
+  - **Verification:** `git grep -i '<real-school-name>\|<real-surname-1>\|<real-surname-2>\|...' web/data/seed/ web/prisma/seed.ts`
+    returns no matches (real values listed in the bead notes by the
+    polecat reading the pre-anonymization data).
+  - `npm run seed` re-runs cleanly; resulting `dev.db` is staged for
+    B2's atomic commit.
 - **Why before B2:** B2 commits `dev.db` as the first tracked binary.
   If anonymization runs after B2, the FIRST commit ships real PII for
   an 11-year-old — and per R4 that history is permanent.
@@ -560,7 +573,7 @@ code-touching beads)**
     most-likely fix, per §Risks/R1; reaches `main` here so B8 doesn't
     trip on the engine-target mismatch B1 was designed to prevent)
   - `web/package.json` — add `"reseed"` script:
-    `prisma db seed && git add prisma/dev.db ../data/seed/grades.json`
+    `prisma db seed && git add prisma/dev.db data/seed/grades.json`
     (R6 mitigation; B9's reseed-cycle stamp uses it)
 - Acceptance: `git status` clean after commit; `npm run reseed`
   exits 0 in a smoke run; `web/prisma/schema.prisma` `npx prisma
@@ -584,9 +597,13 @@ parallel with B4/B5/B7; critical ordering: must precede B8)**
 **B4 — Navbar Grades link (P2, parallel with B3/B5/B7)**
 - Add `<NavLink href="/grades">Grades</NavLink>` before the existing
   About entry.
-- Acceptance: `Grades` link visible from every Navbar-rendering route;
-  `usePathname()` highlights it as active on `/grades`; final order
-  `Grades | About | DarkMode`.
+- Acceptance (verifiable from `localhost:3000`):
+  - `curl -s http://localhost:3000/grades | grep -c '>Grades</a>' >= 1`
+  - `curl -s http://localhost:3000/about  | grep -c '>Grades</a>' >= 1`
+  - DOM order on either page reads `Grades | About | DarkMode` (visual
+    smoke or `grep` for ordered-anchor pattern).
+  - `<a>` for `Grades` carries the active class on `/grades` (via
+    `usePathname()`).
 - Depends on: B0. (Pure UI; survives a B1-failure pivot to Option B
   without rework.)
 
@@ -602,20 +619,37 @@ parallel with B4/B5/B7; critical ordering: must precede B8)**
 - Suppress stale grade letter on `SubjectCard` when no assignments;
   render `"No assignments yet"` on the subject-detail header. Add
   `hasAssignments: boolean` to `fetchAllSubjects`.
-- Acceptance: subjects with `assignments.length === 0` show no letter
-  on `/grades` cards; their `/subject/[id]` page header shows
-  `"No assignments yet"` instead of a stored grade.
-- Depends on: B1 green. (Touches a Prisma query shape; pivot to
-  Option B would re-shape the query, so keep gated.)
+- Acceptance: name the empty-assignments fixture in the bead notes
+  (the polecat verifies against the right row). If no
+  empty-assignments subject exists in `dev.db`, the polecat introduces
+  one (after B1.5's anonymization branch lands, if applicable). Then:
+  subjects with `assignments.length === 0` show no letter on
+  `/grades` cards; their `/subject/[id]` page header shows
+  `"No assignments yet"` instead of a stored grade. Verify via
+  `curl -s http://localhost:3000/subject/<empty-id> | grep "No assignments yet"`.
+- Depends on: B1 green. (Reads from Prisma; if B1 fails and we pivot
+  to Option B, this bead's polecat re-runs against the pivoted
+  client. Gating avoids wasted work in the pivot branch — the schema
+  itself is portable per §Data Model line 223.)
 
 **B7 — Kid-readable `error.tsx` (P3, parallel with B3/B4/B5)**
 - Rewrite copy + remove "Try again" wording per PRD Q6.
-- Acceptance: a thrown error in `/grades` (e.g. forced via dev tools)
-  renders the kid-readable copy verbatim; no "Try again" button; no
-  stack trace.
+- **Locked copy** (default; overridable at plan-approval gate):
+  *"Hmm, the grade tracker isn't working right now. Your dad will
+  fix it soon."*
+- Acceptance (deterministic trigger): set
+  `DATABASE_URL=file:/nonexistent.db` in `web/.env.local`,
+  `npm run dev`, `curl -s http://localhost:3000/grades` →
+  rendered HTML contains the locked copy verbatim, contains no
+  "Try again", contains no stack trace, contains no React error
+  digest (DOM-only check).
 - Depends on: B0. (Independent of DB-platform outcome.)
 
 **B8a — Vercel project configure (P1, prereq for B8c)**
+- **Pre-step (conditional):** if no Vercel account exists for the
+  GitHub user/org, create one (~30s sign-up flow, free Hobby tier).
+  Record the account-creation outcome in bead notes. Resolves
+  carry-forward item #6 / OQ #3.
 - Create Vercel project; link GitHub repo (`shuhan-study/web_ui`);
   Root Directory = `web`; framework auto-detected as Next.js; set
   `DATABASE_URL` env var per B1(b)'s recommendation; configure
@@ -644,13 +678,29 @@ B8a)**
   disallow-all `Robots` object. Both are defense-in-depth for the
   locked "URL secrecy is the access control" posture (round-2 r2
   framing).
-- Acceptance: `curl -I https://<live-url>/grades` shows
-  `x-robots-tag: noindex`; `curl https://<live-url>/robots.txt`
-  returns `User-agent: *\nDisallow: /`.
-- Depends on: B0. (Will be exercised by B8c's first deploy.)
+- **Coordination clause (per plan-review r3 C-M2):** if B1(d)
+  required `outputFileTracingIncludes` to land in B2's
+  `web/next.config.mjs`, B8b **rebases on top of B2's commit** before
+  opening; the `headers()` block appends below
+  `outputFileTracingIncludes` in the same file. If B1(d) was a
+  no-op (probe page found `dev.db` already bundled), B8b creates
+  `web/next.config.mjs` from scratch. Either way, both fixes coexist
+  in one file without a parallel-write conflict.
+- Acceptance (commit-time, verifiable without a live URL):
+  - `web/next.config.mjs` exports a `headers()` function whose
+    output includes `{ key: 'X-Robots-Tag', value: 'noindex' }` for
+    `source: '/(.*)'` (file read).
+  - `web/app/robots.ts` exists and exports a default function
+    returning a disallow-all `Robots` object (file read).
+  - `npm run build` exits 0 with no Next config warnings.
+- (The live-URL `curl` checks for `x-robots-tag: noindex` and
+  `robots.txt` body land as B8c acceptance items, not B8b's, so the
+  bead can close before B8c.)
+- Depends on: B0. (May rebase on B2 if B1(d) requires the fix; see
+  Coordination clause.)
 - **Note:** `web/next.config.mjs` is hereby promoted from "stays
-  empty" to "has `headers()` and that's it." Removed from §Files
-  NOT touched.
+  empty" to "has `headers()` and possibly `outputFileTracingIncludes`
+  and that's it." Removed from §Files NOT touched.
 
 **B8c — First deploy + URL capture + build-success criterion (P1,
 fan-in)**
@@ -662,6 +712,10 @@ fan-in)**
   `cache-control: no-store` (or equivalent indicating dynamic);
   build log Function Logs (not just Build Logs) checked for
   runtime engine-load errors per §Risks/R1.
+  **Folded from B8b (live-URL checks):**
+  `curl -I https://<live-url>/grades` shows `x-robots-tag: noindex`;
+  `curl https://<live-url>/robots.txt` returns
+  `User-agent: *\nDisallow: /`.
 - **Rollback path** (if deploy fails): use Vercel dashboard
   "Redeploy from previous successful build" or revert offending
   commit + push; B9 does NOT stamp `reseed cycle: ✅` until the
@@ -688,13 +742,35 @@ fan-in)**
 - **Rollback path** (if smoke fails): do NOT stamp `reseed cycle: ✅`
   until issue resolved; rollback the offending commit per B8c's
   rollback path; surface the failure as the named blocker for B10.
-- Acceptance: smoke.md exists, all 5 (or 6) checklist items show
-  `✅` with a short note, `reseed cycle: ✅ <date>` line present;
-  README "repo must stay private" line landed.
+- Acceptance — per-item pass criteria pinned now (per plan-review r3
+  T-S1; smoke.md commits these inline):
+  - `/grades`: `curl https://<url>/grades` returns 200; HTML
+    contains all 7 subject names; no error boundary text.
+  - `/subject/[id]`: `curl https://<url>/subject/<known-id>` returns
+    200; HTML contains assignments table with at least one row.
+  - `/about`: `curl https://<url>/about` returns 200; HTML contains
+    expected About-page heading.
+  - **Styled 404:** `curl https://<url>/subject/no-such-id` returns
+    404; HTML contains the styled 404 copy from `web/app/not-found.tsx`
+    (NOT the default Next 404).
+  - **Reseed-and-redeploy:** edit `web/data/seed/grades.json` (one
+    field change), `npm run reseed`, commit, push; Vercel auto-deploys
+    in <5 min; reload `https://<url>/grades` shows the changed value.
+    Stamp `reseed cycle: ✅ <date>` in smoke.md only after this
+    completes successfully.
+  - **Optional (overseer-gated 6th scenario):** S6 mid-reseed
+    staleness — verify previous grades persist on live URL between
+    reseed and push.
+  - smoke.md commits with all checked items showing `✅` + a
+    one-line note; README "repo must stay private" line landed.
 - Depends on: B8c.
 
 **B10 — Tag `v0.7-deploy-complete` (P1)**
 - Cut release tag on `main`.
+- Acceptance:
+  `git ls-remote --tags origin v0.7-deploy-complete` returns a SHA
+  matching `origin/main` HEAD at tag time; tag visible in GitHub UI;
+  SHA captured in bead notes.
 - **Pre-B10 prerequisite (resolves OQ #4):** the tag-cutting actor must
   be named before this bead opens. Two options: (a) Refinery cuts the
   tag as part of its merge action — requires confirming Refinery
@@ -712,6 +788,17 @@ fan-in)**
   Otherwise defer to a post-Deploy bead. (Plan-review r2 S5: removes
   ambiguity in the "one-line bump" criterion that could have pulled
   in unintended lockfile churn during the critical-path deploy.)
+- **Verification of the criterion** (per plan-review r3 C-S4): bump
+  `package.json` in a scratch branch, run `npm install`, inspect
+  `package-lock.json` diff. If the diff touches only the patched
+  package's `node_modules/<pkg>` subtree (verified via
+  `git diff --name-only package-lock.json` and reading the diff to
+  confirm scope), fold into B8c. Otherwise defer.
+- **Folded-in acceptance** (if it folds): GitHub Dependabot alert
+  closed for the repo; `cd web && npm audit --json | jq
+  '.metadata.vulnerabilities.moderate'` reports 0 (or expected
+  remaining count); B8c's "zero Prisma engine warnings" still
+  passes.
 
 **Bead graph (post plan-review r1 fixes):**
 ```
