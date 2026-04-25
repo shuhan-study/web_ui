@@ -30,7 +30,7 @@ yarn-error.log*
 .env*.local
 
 # prisma / sqlite
-/prisma/dev.db
+# /prisma/dev.db   ← un-ignored for Option C (committed for Vercel to bundle as read-only)
 /prisma/dev.db-journal
 
 # vercel
