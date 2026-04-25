@@ -471,6 +471,11 @@ code-touching beads)**
 critical ordering: must precede B8)**
 - Two one-line edits, single commit.
 - Acceptance: local `npm run build` shows both routes as `ƒ (Dynamic)`.
+- **Why (PRD Q5 acceptance, verbatim):** Each request to `/grades` and
+  `/subject/[id]` reads from bundled `dev.db` shipped with the most
+  recent successful deploy. No build-time SSG snapshot, no per-request
+  caching beyond standard browser/CDN behavior. Freshness ≠ real-time;
+  staleness is bounded by deploy cadence.
 - Depends on: B1 green.
 
 **B4 — Navbar Grades link (P2, parallel with B5/B6)**
@@ -513,8 +518,16 @@ critical ordering: must precede B8)**
 - Depends on: B8.
 
 **B10 — Tag `v0.7-deploy-complete` (P1)**
-- Cut release tag on `main`. Resolution of "who cuts it" is an open
-  question (overseer or Refinery).
+- Cut release tag on `main`.
+- **Pre-B10 prerequisite (resolves OQ #4):** the tag-cutting actor must
+  be named before this bead opens. Two options: (a) Refinery cuts the
+  tag as part of its merge action — requires confirming Refinery
+  supports `git tag` and documenting the trigger; (b) overseer cuts
+  the tag manually with `git tag v0.7-deploy-complete && git push
+  origin v0.7-deploy-complete` — names the human as B10's executor.
+  Resolution will be raised at the plan-approval gate (wu-avk
+  Blocker-2 contract); B10's acceptance text gets one of these
+  options written in before create-beads.
 - Depends on: B9.
 
 **B11 (optional) — Dependabot fix**
