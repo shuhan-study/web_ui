@@ -138,11 +138,13 @@ beads, one fan-in deploy bead, one verification bead, one tag bead.
   header
 
 **Files explicitly NOT touched** (kept out of scope to keep the project
-narrow): `web/next.config.mjs` (stays empty unless B1 forces an
-`outputFileTracingIncludes` entry), `web/prisma/seed.ts`,
-`web/app/about/page.tsx`, `web/app/not-found.tsx`,
-`web/app/layout.tsx`, ESLint / TS config, `package.json` deps (unless
-B11's Dependabot fix folds in).
+narrow): `web/prisma/seed.ts` (touched only on the anonymization-yes
+branch via B1.5), `web/app/about/page.tsx`,
+`web/app/not-found.tsx`, `web/app/layout.tsx`, ESLint / TS config,
+`package.json` deps (unless B11's Dependabot fix folds in).
+`web/next.config.mjs` is touched by B8b (`headers()` + `robots.ts`
+companion) — minimal, single-purpose addition. `web/package.json`
+gets only the new `reseed` script (B2).
 
 ### Interface
 
@@ -481,14 +483,41 @@ code-touching beads)**
   probe failure with documented evidence. Per PRD Q3.
 - Depends on: B0.
 
-**B2 — Land `dev.db` commit + un-ignore (P1)**
+**B1.5 (conditional) — Anonymize seed data (P0/P1, gated on plan-approval answer)**
+- Conditional bead. Opens if and only if the plan-approval gate's
+  answer to seed-anonymization is **yes**. If **no**, this bead is
+  closed at creation with the privacy-waiver text logged in PLAN.md
+  decision log.
+- Acceptance (yes branch): `web/data/seed/grades.json` and
+  `web/prisma/seed.ts` contain only first-name + generic school
+  name + initials-only teachers; `npm run seed` re-runs cleanly;
+  resulting `dev.db` is staged for B2's atomic commit.
+- **Why before B2:** B2 commits `dev.db` as the first tracked binary.
+  If anonymization runs after B2, the FIRST commit ships real PII for
+  an 11-year-old — and per R4 that history is permanent.
+- Depends on: B1 green AND plan-approval-gate answer.
+
+**B2 — Land `dev.db` + schema/package edits + un-ignore (P1)**
 - Unstash full_stack's `wu-avk pre-pull: un-ignore dev.db edit` stash;
-  re-run `npm run seed`; commit `web/.gitignore` + `web/prisma/dev.db`
-  atomically.
-- Depends on: B1 green.
+  re-run `npm run seed` (post B1.5 if anonymization yes); commit the
+  following files atomically in one bead:
+  - `web/.gitignore` — un-ignore `/prisma/dev.db`
+  - `web/prisma/dev.db` — tracked binary
+  - `web/prisma/schema.prisma` — add `binaryTargets = ["native",
+    "rhel-openssl-3.0.x"]` to the `client` generator block (B1's
+    most-likely fix, per §Risks/R1; reaches `main` here so B8 doesn't
+    trip on the engine-target mismatch B1 was designed to prevent)
+  - `web/package.json` — add `"reseed"` script:
+    `prisma db seed && git add prisma/dev.db ../data/seed/grades.json`
+    (R6 mitigation; B9's reseed-cycle stamp uses it)
+- Acceptance: `git status` clean after commit; `npm run reseed`
+  exits 0 in a smoke run; `web/prisma/schema.prisma` `npx prisma
+  validate` passes.
+- Depends on: B1 green AND B1.5 closed (whether yes-branch landed or
+  no-branch waived).
 
 **B3 — Add `force-dynamic` on `/grades` and `/subject/[id]` (P1,
-critical ordering: must precede B8)**
+parallel with B4/B5/B7; critical ordering: must precede B8)**
 - Two one-line edits, single commit.
 - Acceptance: local `npm run build` shows both routes as `ƒ (Dynamic)`.
 - **Why (PRD Q5 acceptance, verbatim):** Each request to `/grades` and
@@ -496,52 +525,114 @@ critical ordering: must precede B8)**
   recent successful deploy. No build-time SSG snapshot, no per-request
   caching beyond standard browser/CDN behavior. Freshness ≠ real-time;
   staleness is bounded by deploy cadence.
-- Depends on: B1 green.
+- Depends on: B0. (Pure Next route config; survives an Option B
+  pivot. Critical-ordering vs B8 is a hard fan-in dependency, not
+  a B1 dependency.)
 
-**B4 — Navbar Grades link (P2, parallel with B5/B6)**
+**B4 — Navbar Grades link (P2, parallel with B3/B5/B7)**
 - Add `<NavLink href="/grades">Grades</NavLink>` before the existing
   About entry.
-- Depends on: B1 green.
+- Acceptance: `Grades` link visible from every Navbar-rendering route;
+  `usePathname()` highlights it as active on `/grades`; final order
+  `Grades | About | DarkMode`.
+- Depends on: B0. (Pure UI; survives a B1-failure pivot to Option B
+  without rework.)
 
-**B5 — Root `/` redirect to `/grades` (P2, parallel with B4/B6)**
-- Replace `web/app/page.tsx` body with `redirect('/grades')`.
-- Depends on: B1 green.
+**B5 — Root `/` redirect to `/grades` (P2, parallel with B3/B4/B7)**
+- Replace `web/app/page.tsx` body with `redirect('/grades')` from
+  `next/navigation`.
+- Acceptance: `curl -I http://localhost:3000/` returns
+  `HTTP/1.1 307` with `location: /grades` (or 308); browser hitting
+  `/` lands on `/grades`.
+- Depends on: B0. (Pure routing; survives a B1-failure pivot.)
 
 **B6 — Empty-assignments zero-state (P2, parallel with B4/B5)**
 - Suppress stale grade letter on `SubjectCard` when no assignments;
   render `"No assignments yet"` on the subject-detail header. Add
   `hasAssignments: boolean` to `fetchAllSubjects`.
-- Depends on: B1 green.
+- Acceptance: subjects with `assignments.length === 0` show no letter
+  on `/grades` cards; their `/subject/[id]` page header shows
+  `"No assignments yet"` instead of a stored grade.
+- Depends on: B1 green. (Touches a Prisma query shape; pivot to
+  Option B would re-shape the query, so keep gated.)
 
-**B7 — Kid-readable `error.tsx` (P3, independent of probe)**
-- Rewrite copy + remove "Try again" wording per PRD Q6. Independent of
-  DB-platform outcome, so does not require B1 green; depends only on
-  B0.
+**B7 — Kid-readable `error.tsx` (P3, parallel with B3/B4/B5)**
+- Rewrite copy + remove "Try again" wording per PRD Q6.
+- Acceptance: a thrown error in `/grades` (e.g. forced via dev tools)
+  renders the kid-readable copy verbatim; no "Try again" button; no
+  stack trace.
+- Depends on: B0. (Independent of DB-platform outcome.)
 
-**B8 — Vercel project setup + first deploy (P1, fan-in)**
-- Create Vercel project; link GitHub repo; Root Directory = `web`; set
-  `DATABASE_URL` env var per B1(b); deploy from `main`; capture URL.
+**B8a — Vercel project configure (P1, prereq for B8c)**
+- Create Vercel project; link GitHub repo (`shuhan-study/web_ui`);
+  Root Directory = `web`; framework auto-detected as Next.js; set
+  `DATABASE_URL` env var per B1(b)'s recommendation; configure
+  branch-to-deploy = every push to `main` triggers prod deploy.
 - **Verify Vercel project Node version ≥ 20.9** in Project Settings
-  → General before first deploy (PRD constraint; one-line check
-  closes the loop in case Vercel default ever drifts).
-- Folded plan-phase concerns: privacy sign-off (overseer must
-  acknowledge that URL secrecy is the access control before bookmark/
-  share); branch-to-deploy strategy (every push to `main` deploys);
-  build success criterion (zero Prisma engine warnings in Vercel build
-  log); optional Dependabot fix (B11) inlined here if one-line bump.
-- Also adds: `robots.txt` + `X-Robots-Tag: noindex` headers
-  (defense-in-depth for the locked "URL secrecy is the access
-  control" posture — not new privacy-engineering scope; ratify at
-  plan-approval gate).
-- Depends on: B2, B3, B4, B5, B6, B7.
+  → General (PRD constraint; ~30-second check).
+- **Privacy sign-off** captured here: overseer acknowledges URL
+  secrecy is the access control before B8c.
+- Acceptance: Vercel project exists; settings screenshot or text
+  confirmation in bead notes; `vercel env ls` shows `DATABASE_URL`.
+- Depends on: B0. (Vercel-side only; no code commit.)
+
+**B8b — `robots.txt` + `X-Robots-Tag: noindex` (P1, parallel with
+B8a)**
+- Implementation surface: **`web/next.config.mjs`** —
+  `headers()` async function returning a `[{ source: '/(.*)',
+  headers: [{ key: 'X-Robots-Tag', value: 'noindex' }] }]` list, plus
+  a static `web/app/robots.ts` (Next 13+ MetadataRoute) returning a
+  disallow-all `Robots` object. Both are defense-in-depth for the
+  locked "URL secrecy is the access control" posture (round-2 r2
+  framing).
+- Acceptance: `curl -I https://<live-url>/grades` shows
+  `x-robots-tag: noindex`; `curl https://<live-url>/robots.txt`
+  returns `User-agent: *\nDisallow: /`.
+- Depends on: B0. (Will be exercised by B8c's first deploy.)
+- **Note:** `web/next.config.mjs` is hereby promoted from "stays
+  empty" to "has `headers()` and that's it." Removed from §Files
+  NOT touched.
+
+**B8c — First deploy + URL capture + build-success criterion (P1,
+fan-in)**
+- Trigger first prod deploy by pushing to `main` after all upstream
+  beads land; capture `*.vercel.app` URL into bead notes and into
+  `notes/deploy-2026-04-25/smoke.md` header.
+- Acceptance: Vercel deploy log shows zero Prisma engine warnings;
+  `curl -I https://<live-url>/grades` returns 200 with
+  `cache-control: no-store` (or equivalent indicating dynamic);
+  build log Function Logs (not just Build Logs) checked for
+  runtime engine-load errors per §Risks/R1.
+- **Rollback path** (if deploy fails): use Vercel dashboard
+  "Redeploy from previous successful build" or revert offending
+  commit + push; B9 does NOT stamp `reseed cycle: ✅` until the
+  deploy is healthy.
+- Optional fold-in: Dependabot fix (B11) inlined here if one-line
+  bump.
+- Depends on: B2, B3, B4, B5, B6, B7, B8a, B8b.
 
 **B9 — Live-URL smoke + reseed-redeploy verification (P1)**
-- Walk smoke checklist on production URL; perform reseed cycle
-  end-to-end; commit `notes/deploy-2026-04-25/smoke.md` with
+- Author `notes/deploy-2026-04-25/smoke.md` with the inlined 5-item
+  checklist (PRD goal #7): `/grades`, `/subject/[id]`, `/about`,
+  styled 404, reseed-and-redeploy. Optional opt-in (overseer call at
+  plan-approval gate): walk all 6 PRD scenarios end-to-end (S1–S6;
+  see r3 observation O-1).
+- Walk the checklist on the production URL; perform the reseed cycle
+  end-to-end (`npm run reseed` → commit → push → Vercel auto-deploy
+  → reload → fresh data confirmed); commit smoke.md with the
   `reseed cycle: ✅ <date>` stamp per PRD Q4.
+- Also: one-line addition to `web/README.md` (or repo root README)
+  documenting "repo must stay private" (R4 mitigation, completeness
+  S2 fold-in).
 - Hybrid ownership: polecat for text-verifiable items, Rongjun for
   dark-mode flash + reseed cycle.
-- Depends on: B8.
+- **Rollback path** (if smoke fails): do NOT stamp `reseed cycle: ✅`
+  until issue resolved; rollback the offending commit per B8c's
+  rollback path; surface the failure as the named blocker for B10.
+- Acceptance: smoke.md exists, all 5 (or 6) checklist items show
+  `✅` with a short note, `reseed cycle: ✅ <date>` line present;
+  README "repo must stay private" line landed.
+- Depends on: B8c.
 
 **B10 — Tag `v0.7-deploy-complete` (P1)**
 - Cut release tag on `main`.
@@ -557,31 +648,38 @@ critical ordering: must precede B8)**
 - Depends on: B9.
 
 **B11 (optional) — Dependabot fix**
-- Conditional: fold into B8 if one-line bump; defer otherwise.
+- Conditional: fold into B8c if one-line bump; defer otherwise.
 
-**Bead graph:**
+**Bead graph (post plan-review r1 fixes):**
 ```
 B0 (Mayor cleanup)
  │
  ├─→ B1 (Probe Option C) ──[fail]──→ STOP, file P0 "Switch to Option B"
  │      │
- │      └─[green]──┬─→ B2 (dev.db commit + un-ignore) ─┐
- │                 ├─→ B3 (force-dynamic) ──────────────┤
- │                 ├─→ B4 (Navbar Grades) ──────────────┤
- │                 ├─→ B5 (Root redirect) ──────────────┤
- │                 └─→ B6 (zero-state) ─────────────────┤
- │                                                       │
- └─→ B7 (kid-readable error.tsx) ───────────────────────┤
-                                                         │
-                                                         ▼
-                                              B8 (Vercel deploy)
-                                                         │
-                                                         ▼
-                                              B9 (smoke + reseed)
-                                                         │
-                                                         ▼
-                                              B10 (tag v0.7)
+ │      └─[green]──→ B1.5 (anonymize, conditional) ──→ B2 (dev.db + schema + reseed script) ─┐
+ │                                                                                            │
+ ├─→ B3 (force-dynamic) ─────────────────────────────────────────────────────────────────────┤
+ ├─→ B4 (Navbar Grades) ─────────────────────────────────────────────────────────────────────┤
+ ├─→ B5 (Root redirect) ─────────────────────────────────────────────────────────────────────┤
+ ├─→ B7 (kid-readable error.tsx) ────────────────────────────────────────────────────────────┤
+ ├─→ B8a (Vercel configure) ─────────────────────────────────────────────────────────────────┤
+ ├─→ B8b (robots.txt + headers) ─────────────────────────────────────────────────────────────┤
+ │                                                                                            │
+ └──────────────────────────────────────────────[B6 needs B1 green]──→ B6 (zero-state) ──────┤
+                                                                                              │
+                                                                                              ▼
+                                                                                    B8c (first deploy)
+                                                                                              │
+                                                                                              ▼
+                                                                                    B9 (smoke + reseed)
+                                                                                              │
+                                                                                              ▼
+                                                                                    B10 (tag v0.7)
 ```
+Notes on graph: B3/B4/B5/B7/B8a/B8b all gate only on B0; pivot to
+Option B leaves them re-usable. B6 stays gated on B1 (Prisma query
+shape). B2 chains through B1.5 for the anonymization branch
+(closed-as-waived if no). B8c is the fan-in.
 
 ### Phase 2: Polish (post-tag, out of Deploy scope)
 
