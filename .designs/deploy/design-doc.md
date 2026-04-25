@@ -260,6 +260,10 @@ plan / create-beads phase.
   to include the assignments relation. Smaller surface, no payload
   bloat. Open in B6 for the implementing polecat to confirm.
 - **`npm run reseed` script:** wrap seed + `git add` of the binary.
+  Ergonomics adjunct to goal #3 (reliable reseed cycle); not requested
+  by PRD but mitigates R6 (forgotten `git add` of the binary). Logged
+  here so its inclusion is explicit, not implicit. To be ratified at
+  the plan-approval gate.
 - **Seed data anonymization:** convert `web/data/seed/grades.json` and
   `web/prisma/seed.ts` to first-name-only, generic school name,
   initials-only teacher names BEFORE the first deploy. Stays within
@@ -291,8 +295,12 @@ None block the create-beads phase.
    Touches PRD scope tangentially (no schema change, no architectural
    change, but does change displayed copy). Recommend folding the
    decision into B0/B1 timeframe so it lands before B8 (when the URL
-   becomes shareable). If overseer prefers to keep real data, document
-   that explicitly so the privacy posture is conscious.
+   becomes shareable).
+   **Plan-approval gate requirement (added round 2):** overseer must
+   answer this explicitly — yes/no, not silent skip. If yes, frame as
+   "enables the locked no-auth posture." If no, log a privacy waiver
+   in PLAN.md decision log before B8 opens. Either resolution is
+   small; leaving it implicit risks the URL going live with real PII.
 3. **Vercel account ownership.** Is the Vercel account already created
    and linked to the GitHub user/org? PRD OQ #7. B8 starts with an
    account-creation step if not — that's the earliest natural point.
@@ -420,6 +428,18 @@ deploy, ignoring it is poor hygiene.
 single-line patch/minor bump. Defer to a post-Deploy bead if it pulls
 in a major version drift.
 
+**R9 — Soft deadline 2026-05-30 slips.**
+End-of-Trimester-3 deadline gives ~5 weeks from project open
+(2026-04-24). The 10-bead graph plus two human gates is plausibly
+fittable, but B1-failure → Option B pivot consumes the entire
+remaining window. B0 (mayor cleanup) is also a coordination wildcard.
+
+**Mitigation:** None additive. The deadline is soft; B1 is the only
+realistic miss scenario; pivot mechanics are already locked (stop
+Deploy + open Postgres Migration). Surfaced here so the plan-approval
+mail to overseer can ratify "deadline-aware but not deadline-driven"
+explicitly.
+
 ---
 
 ## Implementation Plan
@@ -501,12 +521,18 @@ critical ordering: must precede B8)**
 **B8 — Vercel project setup + first deploy (P1, fan-in)**
 - Create Vercel project; link GitHub repo; Root Directory = `web`; set
   `DATABASE_URL` env var per B1(b); deploy from `main`; capture URL.
+- **Verify Vercel project Node version ≥ 20.9** in Project Settings
+  → General before first deploy (PRD constraint; one-line check
+  closes the loop in case Vercel default ever drifts).
 - Folded plan-phase concerns: privacy sign-off (overseer must
   acknowledge that URL secrecy is the access control before bookmark/
   share); branch-to-deploy strategy (every push to `main` deploys);
   build success criterion (zero Prisma engine warnings in Vercel build
   log); optional Dependabot fix (B11) inlined here if one-line bump.
-- Also adds: `robots.txt` + `X-Robots-Tag: noindex` headers (per R3).
+- Also adds: `robots.txt` + `X-Robots-Tag: noindex` headers
+  (defense-in-depth for the locked "URL secrecy is the access
+  control" posture — not new privacy-engineering scope; ratify at
+  plan-approval gate).
 - Depends on: B2, B3, B4, B5, B6, B7.
 
 **B9 — Live-URL smoke + reseed-redeploy verification (P1)**
