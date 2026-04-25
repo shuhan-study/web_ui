@@ -101,9 +101,12 @@ beads, one fan-in deploy bead, one verification bead, one tag bead.
 
 ### Key Components
 
-**Code edits in `web/` (B2-B7):**
+**Code edits in `web/` (B2-B8b):**
 - `web/.gitignore` — un-ignore `/prisma/dev.db`; keep `dev.db-journal`
-  ignored; add `dev.db-wal` and `dev.db-shm` to the ignore list
+  ignored. (Preemptive `dev.db-wal` + `dev.db-shm` patterns dropped
+  per plan-review r2 SIMPLIFY-1: WAL mode isn't enabled and Vercel
+  runtime is read-only; current rollback-journal mode produces only
+  `dev.db-journal` locally.)
 - `web/prisma/dev.db` — committed as a tracked binary blob
   (re-generated via `npm run seed` immediately before the commit so the
   bundled data matches the latest `data/seed/grades.json`)
@@ -142,9 +145,12 @@ narrow): `web/prisma/seed.ts` (touched only on the anonymization-yes
 branch via B1.5), `web/app/about/page.tsx`,
 `web/app/not-found.tsx`, `web/app/layout.tsx`, ESLint / TS config,
 `package.json` deps (unless B11's Dependabot fix folds in).
-`web/next.config.mjs` is touched by B8b (`headers()` + `robots.ts`
-companion) — minimal, single-purpose addition. `web/package.json`
-gets only the new `reseed` script (B2).
+`web/next.config.mjs` is touched by **B2** (`outputFileTracingIncludes`
+for `dev.db` if B1(d) requires it) and **B8b** (`headers()` for
+`X-Robots-Tag`) — both single-purpose additions; B2 lands first
+and B8b appends or B8b folds into B2's commit if both fixes are
+landed simultaneously. `web/package.json` gets only the new `reseed`
+script (B2).
 
 ### Interface
 
@@ -387,6 +393,15 @@ and indexed.
   constraint — flipping to public would have retroactive disclosure
   consequences via git history).
 
+**Residual severity on the no-anonymization branch (per plan-review
+r2 M3):** if the plan-approval-gate answer to anonymization is
+**no**, layer (a) is void and only layers (b) + (c) remain. Residual
+impact stays HIGH (irreversible exposure of a minor's PII if the URL
+ever leaks); residual likelihood stays LOW-MEDIUM (`*.vercel.app`
+URLs do get scanned even with `noindex`). B8a's privacy sign-off
+captures the overseer's informed-consent waiver in this branch — see
+B8a spec.
+
 **R4 — Future repo-visibility flip retroactively discloses every grade
 snapshot in git history.**
 Once `dev.db` is committed, every reseed lives in git history. If the
@@ -430,6 +445,16 @@ deploy, ignoring it is poor hygiene.
 single-line patch/minor bump. Defer to a post-Deploy bead if it pulls
 in a major version drift.
 
+**R10 — Vercel Hobby tier limits.**
+Plan assumes Hobby tier (single-user load is well under any quota).
+Defense is `noindex` + URL secrecy. Bandwidth, build-minute, and
+single-region limits could surprise on accidental crawler bypass or
+URL leak. No active monitoring planned.
+
+**Mitigation:** None additive. If Shuhan reports the URL is broken,
+check Vercel dashboard quota first. Documented here so the surprise
+is recognizable rather than mysterious.
+
 **R9 — Soft deadline 2026-05-30 slips.**
 End-of-Trimester-3 deadline gives ~5 weeks from project open
 (2026-04-24). The 10-bead graph plus two human gates is plausibly
@@ -462,9 +487,16 @@ code-touching beads)**
 - Source: PRD clarification Q7
 - Acceptance: `git status` in Mayor worktree clean; mayor session
   restarted; overseer confirms via mail
+- **SLA / fallback (per plan-review r2 S1):** if Mayor unresponsive
+  > 48 h, overseer manually cleans the worktree
+  (`git -C <mayor-worktree> reset --hard HEAD &&
+   git -C <mayor-worktree> clean -fd`) after capturing a diagnostic
+  snapshot (`git status > /tmp/mayor-pre-clean.log`). Removes the
+  "indefinite human-pinned blocker" failure mode against the
+  2026-05-30 soft deadline (R9).
 
-**B1 — Probe Option C feasibility (P0, gates B2-B6)**
-- Single bead, 3-item acceptance checklist:
+**B1 — Probe Option C feasibility (P0, gates B2/B6)**
+- Single bead, 4-item acceptance checklist:
   - **(a)** Prisma engine bundling on Vercel with non-root project
     directory (Root Directory = `web`). Verified by a preview deploy
     off a throwaway branch returning a non-error response on `/grades`.
@@ -477,10 +509,30 @@ code-touching beads)**
     Verified by no `dev.db-journal` creation attempt. Mitigation if
     needed: `?mode=ro&immutable=1` query string (preferred), or
     explicit `PRAGMA journal_mode=DELETE` at seed time.
+  - **(d)** `prisma/dev.db` actually present in the Vercel function
+    artifact at runtime. Next's serverless tracer only includes
+    *imported* files; `dev.db` is opened via a `DATABASE_URL` string
+    so it isn't auto-traced. Verified either by a probe page that
+    `fs.readdir`s `process.cwd()/prisma/`, or via Vercel's build-output
+    inspector. Most likely fix: `outputFileTracingIncludes: { '/**/*':
+    ['./prisma/dev.db'] }` (or equivalent — exact key/value resolved
+    by the probe) added to `web/next.config.mjs`. **If this fix is
+    needed, fold it into B2's atomic commit alongside `binaryTargets`
+    + the `headers()` config B8b adds — single `next.config.mjs` rewrite,
+    one file in the diff.**
+- **Probe→main fidelity:** B2 cherry-picks the exact commit B1
+  verified on the throwaway branch; no re-derivation. (B1 acceptance
+  records the probe-branch SHA; B2 references it.) Removes the
+  false-green path where probe-branch state and B2's main commit
+  drift silently.
 - Failure of any item → file P0 "Switch to Option B" and stop Deploy.
   Per PRD Q2.
 - Carve-out: Prisma 5.x patch/minor bump allowed if needed to fix a
-  probe failure with documented evidence. Per PRD Q3.
+  probe failure with documented evidence. Per PRD Q3. **If a bump is
+  taken, B1 acceptance also requires `npm run build` + a localhost
+  smoke walk of `/grades`, `/subject/[id]`, `/about`, `/` redirect
+  before B2 opens** (catches unrelated regressions on a non-Prisma
+  route).
 - Depends on: B0.
 
 **B1.5 (conditional) — Anonymize seed data (P0/P1, gated on plan-approval answer)**
@@ -570,8 +622,15 @@ parallel with B4/B5/B7; critical ordering: must precede B8)**
   branch-to-deploy = every push to `main` triggers prod deploy.
 - **Verify Vercel project Node version ≥ 20.9** in Project Settings
   → General (PRD constraint; ~30-second check).
-- **Privacy sign-off** captured here: overseer acknowledges URL
-  secrecy is the access control before B8c.
+- **Privacy sign-off captured here.** Overseer acknowledges URL
+  secrecy is the access control before B8c. **If the plan-approval-
+  gate answer to seed anonymization was *no*, the sign-off is an
+  informed-consent waiver per R3 residual-severity wording: the
+  overseer's waiver text must name the data subject (Shuhan, age
+  ~11) + the live URL + the specific PII fields exposed (names,
+  school, teachers, grades) and acknowledge HIGH residual impact
+  defended only by `noindex` + repo-private.** Plain procedural
+  "ok'd" language is not sufficient on the waiver branch.
 - Acceptance: Vercel project exists; settings screenshot or text
   confirmation in bead notes; `vercel env ls` shows `DATABASE_URL`.
 - Depends on: B0. (Vercel-side only; no code commit.)
@@ -648,7 +707,11 @@ fan-in)**
 - Depends on: B9.
 
 **B11 (optional) — Dependabot fix**
-- Conditional: fold into B8c if one-line bump; defer otherwise.
+- Conditional: fold into B8c only if **patch-level only AND no
+  transitive lockfile changes outside the patched package's tree**.
+  Otherwise defer to a post-Deploy bead. (Plan-review r2 S5: removes
+  ambiguity in the "one-line bump" criterion that could have pulled
+  in unintended lockfile churn during the critical-path deploy.)
 
 **Bead graph (post plan-review r1 fixes):**
 ```
