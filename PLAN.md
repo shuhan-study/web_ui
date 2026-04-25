@@ -99,6 +99,10 @@ into the Vercel build. Reseeds happen at the JSON level, regenerate
 - Prisma + SQLite on Vercel serverless is a known-but-not-loved setup; needs verification during the deploy bead.
 - **Pivot trigger:** if Prisma engine bundling fails on Vercel after reasonable troubleshooting, switch to Option B (Postgres on Neon).
 
+**Carve-outs (added 2026-04-25 from wu-avk human-clarify gate):**
+- **Pivot mechanics:** if Option C probe fails, **stop Deploy, file P0 bead "Switch to Option B" as the next overseer decision, resume Deploy after Postgres Migration lands.** Do NOT inline the migration into Deploy.
+- **Prisma version bump under the Option C lock:** allowed for Prisma 5.x patch/minor IF it directly resolves a probe failure, with documented evidence in the probe bead. Rejected for 6.x major (that's Modernization v2 territory).
+
 ### 2026-04-24 — Root `/` behavior: redirect to `/grades`
 
 **Decision:** Root `/` redirects to `/grades`. Not a landing page.

@@ -331,3 +331,74 @@ Not a plan — just the shape we expect the plan phase to harden.
 (`wu-wfs-rpmqi`). Inputs: `PLAN.md`, `notes/deploy-2026-04-24/
 survey.md`, `archive/prd-reviews/p6-deploy-discarded-draft.md`
 (seed framing), and the wu-avk dispatch instructions.*
+
+---
+
+## Clarifications from Human Review
+
+_Captured 2026-04-25 from overseer (shuhan/crew/shuhan, mail
+`hq-wisp-swx6`) at the human-clarify gate. Synthesis questions are in
+`prd-review.md`. Answers below resolve the 7 critical questions; the
+plan phase consumes this section directly._
+
+**Q1: How is the Option C probe structured — single check or three?**
+A: Option **(ii)** — one bead, explicit 3-item checklist as acceptance
+criteria. Each line independently passable; failure of any one becomes
+the pivot trigger with the specific mechanic named.
+- (a) Prisma engine bundling on Vercel with non-root project directory
+- (b) `DATABASE_URL` path resolution at runtime
+- (c) SQLite journal-mode behavior on read-only filesystem
+
+**Q2: If Option C probe fails, pivot in-project or open a new project?**
+A: **Stop Deploy, open new project "Postgres Migration", resume Deploy
+after it lands. Do NOT inline.** PLAN.md decision log gets:
+> *If Option C probe fails: file P0 bead "Switch to Option B"; that
+> becomes the next overseer decision; do not inline migration into
+> Deploy.*
+
+**Q3: Prisma version bump allowed under Option C lock?**
+A: **Allowed for Prisma 5.x patch/minor IF it directly resolves a
+probe failure, with documented evidence in the probe bead. Rejected
+for 6.x major (that's Modernization v2 territory).** Add to PLAN.md
+decision log under the Option C carve-outs.
+
+**Q4: Concrete artifact for goal #3 (reseed cycle verified)?**
+A: Option **(ii)** — checked-in smoke checklist with
+`reseed cycle: ✅ <date>`. Match the Modernization pattern at
+`notes/modernization-baseline.md`. Text-based, version-controlled, no
+screenshots required.
+
+**Q5: "Fresh" definition lifted out of parenthetical?**
+A: Accept the synthesis-proposed wording verbatim as a top-level
+acceptance criterion:
+
+> Each request to `/grades` and `/subject/[id]` reads from bundled
+> `dev.db` shipped with the most recent successful deploy. No
+> build-time SSG snapshot, no per-request caching beyond standard
+> browser/CDN behavior. Freshness ≠ real-time; staleness is bounded
+> by deploy cadence.
+
+**Q6: Broken-URL UX (e.g. `/grades` 500s after deploy)?**
+A: Option **(ii)** — minimal `error.tsx`. Spec: kid-readable, not
+technical (end user is Shuhan, ~age 11). Suggested copy: *"Hmm, the
+grade tracker isn't working right now. Your dad will fix it soon."*
+~30 lines max. Don't over-engineer (no error reporting, no retry
+buttons, no styling beyond the existing palette).
+
+**Q7: Concrete mayor-worktree coordination plan?**
+A: Blend of **(iii) + (i)** — file a P0 bead **"Pre-Deploy: clean
+mayor worktree"** as a prerequisite to the rest of the Deploy graph
+(must close before any code-touching bead opens). After that bead
+closes, Mayor operates normally for the project duration. Don't try
+to disable Mayor for the whole Deploy — coordination cost too high.
+
+---
+
+### Important-but-non-blocking
+
+The synthesis lists 11 of these (latency target, privacy sign-off,
+empty-assignments scope, fix-bundling policy, runtime selection, etc.,
+at `.prd-reviews/deploy/prd-review.md` lines 124–183). Overseer
+delegated these to the plan phase: *"fold as plan-phase concerns at
+your judgment. If any specific one needs overseer input, route via
+mail."*
