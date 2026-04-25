@@ -37,6 +37,17 @@ See PLAN.md decision log for "why".
 - `archive/prd-reviews/p6-deploy-discarded-draft.md` — the seed PRD. It identified the same gaps and surfaced the DB decision. The intake polecat should adopt its problem framing and update the DB-options section to lock Option C.
 - Modernization `PLAN.md` (now archived at `archive/PLAN-modernization.md`) explicitly listed these items as carry-forward to "the next project (Deploy)".
 
+## Found in flight (preserved in full_stack's stash)
+
+During full_stack's pre-flight on 2026-04-24, a local uncommitted edit to
+`web/.gitignore` was discovered: it un-ignores `/prisma/dev.db`.
+**Origin: overseer's morning 2026-04-24 claude.ai session, prepping for
+Option C.** Stashed by full_stack with label
+`wu-avk pre-pull: un-ignore dev.db edit` so the edit isn't lost. Apply
+through a proper Deploy implementation bead when the molecule lands the
+bead graph — this is the right Option-C plumbing point (un-ignore +
+commit `dev.db` together, in the deploy bead, not ad-hoc).
+
 ## Open follow-on beads (not Deploy-blocking, per hq-h82)
 
 - `wu-8ld` (P3) — OQ #4 client-boundary probe target mismatch
