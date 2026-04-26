@@ -1,0 +1,29 @@
+name: Mirror to rjgeng/web_ui
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: mirror-rjgeng
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Start ssh-agent with deploy key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.RJGENG_DEPLOY_KEY }}
+
+      - name: Push HEAD to rjgeng/web_ui:main
+        run: |
+          git remote add rjgeng git@github.com:rjgeng/web_ui.git
+          git push rjgeng HEAD:main
