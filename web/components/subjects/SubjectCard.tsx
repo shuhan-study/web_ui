@@ -8,7 +8,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
-function SubjectCard({ subject }: { subject: Subject }) {
+type SubjectCardProps = {
+  subject: Subject & { hasAssignments: boolean };
+};
+
+function SubjectCard({ subject }: SubjectCardProps) {
   return (
     <article className="group">
       <Link href={`/subject/${subject.id}`}>
@@ -18,14 +22,20 @@ function SubjectCard({ subject }: { subject: Subject }) {
             <CardDescription>{subject.teacher}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold">
-                {subject.currentGrade}
-              </span>
-              <span className="text-sm text-muted-foreground">
-                {subject.currentPercent.toFixed(1)}%
-              </span>
-            </div>
+            {subject.hasAssignments ? (
+              <div className="flex items-baseline gap-3">
+                <span className="text-4xl font-bold">
+                  {subject.currentGrade}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {subject.currentPercent.toFixed(1)}%
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No assignments yet
+              </div>
+            )}
           </CardContent>
         </Card>
       </Link>

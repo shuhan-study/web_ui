@@ -102,6 +102,14 @@
         { "name": "Vocal Technique Assessment", "score": 48, "max_score": 50, "date": "2026-03-28", "category": "Test" },
         { "name": "Ensemble Rehearsal Performance", "score": 49, "max_score": 50, "date": "2026-04-18", "category": "Project" }
       ]
+    },
+    {
+      "id": "study_hall_6",
+      "name": "Study Hall 6",
+      "teacher": "Mr. O.",
+      "current_grade": "—",
+      "current_percent": 0.0,
+      "assignments": []
     }
   ]
 }
