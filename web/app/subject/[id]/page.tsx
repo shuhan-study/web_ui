@@ -3,8 +3,6 @@ import { fetchSubjectById } from '@/utils/actions';
 import AssignmentsTable from '@/components/assignments/AssignmentsTable';
 import CategoryBreakdown from '@/components/assignments/CategoryBreakdown';
 
-export const dynamic = 'force-dynamic';
-
 export default async function SubjectPage(
   props: {
     params: Promise<{ id: string }>;
