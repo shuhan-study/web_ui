@@ -2,6 +2,8 @@ import { fetchAllSubjects } from '@/utils/actions';
 import SubjectCard from '@/components/subjects/SubjectCard';
 import EmptyState from '@/components/global/EmptyState';
 
+export const dynamic = 'force-dynamic';
+
 export default async function GradesPage() {
   const subjects = await fetchAllSubjects();
 
