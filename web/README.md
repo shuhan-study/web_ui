@@ -1,5 +1,7 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+> **Privacy:** This repository must stay private — it ships real student grade data via `data/seed/grades.json` and a checked-in SQLite seed (`prisma/dev.db`). Do not flip the GitHub repo to public.
+
 ## Getting Started
 
 First, run the development server:
