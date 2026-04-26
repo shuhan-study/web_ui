@@ -18,8 +18,9 @@ export default async function SubjectPage(
     <>
       <h1 className="text-3xl font-semibold">{subject.name}</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        {subject.teacher} · {subject.currentGrade} ·{' '}
-        {subject.currentPercent.toFixed(1)}%
+        {subject.assignments.length === 0
+          ? `${subject.teacher} · No assignments yet`
+          : `${subject.teacher} · ${subject.currentGrade} · ${subject.currentPercent.toFixed(1)}%`}
       </p>
       <section className="mt-8">
         <h2 className="text-xl font-semibold mb-4">Assignments</h2>
