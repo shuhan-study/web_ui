@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint .",
     "seed": "prisma db seed",
+    "reseed": "prisma db seed && git add prisma/dev.db data/seed/grades.json",
     "postinstall": "prisma generate"
   },
   "prisma": {
