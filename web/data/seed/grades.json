@@ -15,7 +15,7 @@
       "name": "Math 6",
       "teacher": "Ms. K.",
       "current_grade": "A",
-      "current_percent": 94.5,
+      "current_percent": 94.0,
       "assignments": [
         { "name": "Fractions Practice Set", "score": 28, "max_score": 30, "date": "2026-02-20", "category": "Homework" },
         { "name": "Ratios Quiz", "score": 18, "max_score": 20, "date": "2026-03-06", "category": "Quiz" },
