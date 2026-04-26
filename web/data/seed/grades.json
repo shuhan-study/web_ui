@@ -1,7 +1,7 @@
 {
   "student": {
-    "name": "Shuhan Geng",
-    "school": "Albany Middle School",
+    "name": "Shuhan",
+    "school": "Middle School",
     "grade": 6
   },
   "term": {
@@ -13,7 +13,7 @@
     {
       "id": "math_6",
       "name": "Math 6",
-      "teacher": "Angeloni",
+      "teacher": "Ms. K.",
       "current_grade": "A",
       "current_percent": 94.0,
       "assignments": [
@@ -27,7 +27,7 @@
     {
       "id": "writing_6",
       "name": "Writing 6",
-      "teacher": "Fryer",
+      "teacher": "Ms. L.",
       "current_grade": "A",
       "current_percent": 93.0,
       "assignments": [
@@ -40,7 +40,7 @@
     {
       "id": "reading_6",
       "name": "Reading 6",
-      "teacher": "Fryer",
+      "teacher": "Ms. L.",
       "current_grade": "B",
       "current_percent": 86.3,
       "assignments": [
@@ -54,7 +54,7 @@
     {
       "id": "history_6",
       "name": "History 6",
-      "teacher": "Fryer",
+      "teacher": "Ms. L.",
       "current_grade": "A+",
       "current_percent": 97.0,
       "assignments": [
@@ -67,7 +67,7 @@
     {
       "id": "science_6",
       "name": "Science 6",
-      "teacher": "Angeloni",
+      "teacher": "Ms. K.",
       "current_grade": "A+",
       "current_percent": 96.0,
       "assignments": [
@@ -80,7 +80,7 @@
     {
       "id": "pe_6",
       "name": "P.E. 6",
-      "teacher": "Mann",
+      "teacher": "Mr. M.",
       "current_grade": "A+",
       "current_percent": 98.0,
       "assignments": [
@@ -91,9 +91,9 @@
       ]
     },
     {
-      "id": "cobra_choir",
-      "name": "Cobra Choir",
-      "teacher": "Huizinga",
+      "id": "choir_6",
+      "name": "Choir 6",
+      "teacher": "Ms. N.",
       "current_grade": "A+",
       "current_percent": 97.0,
       "assignments": [
