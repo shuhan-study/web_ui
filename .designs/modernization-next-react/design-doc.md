@@ -254,7 +254,27 @@ unchanged. Data-freshness verified via mutate-probe, not schema change.
    throw on `/grades`, exercises the client-boundary render path that
    changed most between React 18 → 19. Please confirm.
 
-   **Decision:** (A) — Client Component throw on `/grades`.
+   **Decision (updated post-implementation, 2026-04-27):** The `/grades`
+   page subtree is entirely server-side by design (`page.tsx`,
+   `SubjectCard`, `EmptyState`, `card.tsx` — no `'use client'`). Client
+   components exist only at layout level (`Navbar`, `DarkMode`), which
+   are siblings of `{children}` in `app/layout.tsx` and are not caught
+   by `app/error.tsx`. The original (A) probe cannot run without
+   adding contrived code.
+
+   **Canonical probe:** Insert `throw new Error('smoke probe')` at the
+   top of the `GradesPage()` async server component. Refresh `/grades`.
+   Confirm `app/error.tsx` renders (server log shows the throw, browser
+   shows the kid-readable error UI, GET returns 200). Revert with
+   `git checkout -- app/grades/page.tsx`.
+
+   **Why not a client-component probe:** Adding a client component just
+   to enable the original (A) would introduce production surface area
+   for a test. The server-throw probe verifies error-boundary plumbing
+   for the only error path that exists in this architecture. If a
+   client component is later added to `/grades` for legitimate product
+   reasons, the React 18→19 client-boundary probe can be exercised
+   then. See bead `wu-8ld` for full context.
 
 ### Trade-offs
 
